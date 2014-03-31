@@ -1,5 +1,6 @@
 /* 31 march 2014 */
 /* for mingw; link with -lcomdlg32 */
+/* targets windows 2000 or newer */
 #define UNICODE
 #define _UNICODE
 #include <windows.h>
@@ -8,6 +9,10 @@
 #include <getopt.h>
 
 static BOOL WINAPI (*action)(LPOPENFILENAME);
+
+/* "If the buffer is too small, the function returns FALSE and the CommDlgExtendedError function returns FNERR_BUFFERTOOSMALL. In this case, the first two bytes of the lpstrFile buffer contain the required size, in bytes or characters." - so how do we re-get the filename? TODO */
+#define ourBufSize 4096 + 2		/* for two null terminators */
+static TCHAR filenames[ourBufSize];
 
 /*
 void init(int *argc, char *(*argv[]))
@@ -47,6 +52,29 @@ int main(int argc, char *argv[])
 //	init(&argc, &argv);
 	action=GetOpenFileName;
 
-	(*action)(&ofn);
+	ofn.lStructSize = sizeof (ofn);
+	ofn.hwndOwner = NULL;
+	ofn.hInstance = NULL;
+	ofn.lpstrFilter = NULL;
+	ofn.lpstrCustomFilter = NULL;
+	ofn.nMaxCustFilter = 0;
+	ofn.nFilterIndex = 0;
+	ofn.lpstrFile = filenames;
+		filenames[0] = '\0';
+	ofn.nMaxFile = ourBufSize;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = NULL;
+	ofn.lpstrTitle = NULL;
+	ofn.Flags = 0;
+	ofn.nFileOffset = 0;
+	ofn.nFileExtension = 0;
+	ofn.lpstrDefExt = NULL;
+	ofn.lCustData = 0;
+	ofn.lpfnHook = NULL;
+	ofn.lpTemplateName = NULL;
+	ofn.FlagsEx = 0;
+
+	printf("%d\n", (*action)(&ofn));
 	return 0;
 }
