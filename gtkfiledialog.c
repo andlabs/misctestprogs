@@ -10,6 +10,7 @@
 #define GDK_VERSION_MAX_ALLOWED GDK_VERSION_3_4
 #include <gtk/gtk.h>
 
+static gboolean saveas = FALSE;
 static gboolean nonlocal = FALSE;
 static gboolean multisel = FALSE;
 static gboolean showhidden = FALSE;
@@ -22,11 +23,12 @@ static gchar *initpath = NULL;
 #define flagBool(name, help) { #name, 0, 0, G_OPTION_ARG_NONE, &name, help, NULL }
 #define flagString(name, help) { #name, 0, 0, G_OPTION_ARG_STRING, &name, help, NULL }
 static GOptionEntry flags[] = {
+	flagBool(saveas, "use Save As button"),
 	flagBool(nonlocal, "allow nonlocal files"),
 	flagBool(multisel, "allow multiple selection"),
 	flagBool(showhidden, "show hidden files"),
 	flagBool(confirm, "confirm on overwrite"),
-	flagBool(mkdir, "provide new folder button"),
+	flagBool(mkdir, "provide Create Folder button"),
 	flagBool(filter, "apply some test filters"),
 	flagString(defname, "specify a default filename"),
 	flagString(initpath, "specify an initial filename"),
@@ -34,6 +36,7 @@ static GOptionEntry flags[] = {
 };
 
 static GtkFileChooserAction action;
+static gchar *button;
 
 char *slistToString(GSList *list)
 {
@@ -71,15 +74,19 @@ void init(int *argc, char *(*argv[]))
 	if (*argc != 2)
 		goto usage;
 	mode = (*argv)[1];
-	if (strcmp(mode, "open") == 0)
+	if (strcmp(mode, "open") == 0) {
 		action = GTK_FILE_CHOOSER_ACTION_OPEN;
-	else if (strcmp(mode, "save") == 0)
+		button = GTK_STOCK_OPEN;
+	} else if (strcmp(mode, "save") == 0) {
 		action = GTK_FILE_CHOOSER_ACTION_SAVE;
-	else if (strcmp(mode, "opendir") == 0)
+		button = GTK_STOCK_SAVE;
+	} else if (strcmp(mode, "opendir") == 0) {
 		action = GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
-	else if (strcmp(mode, "savedir") == 0)
+		button = GTK_STOCK_OPEN;
+	} else if (strcmp(mode, "savedir") == 0) {
 		action = GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER;
-	else {
+		button = GTK_STOCK_SAVE;
+	} else {
 		fprintf(stderr, "error: unknown mode %s\n", mode);
 		goto usage;
 	}
@@ -100,10 +107,13 @@ int main(int argc, char *argv[])
 
 	init(&argc, &argv);
 
+	if (saveas)
+		button = GTK_STOCK_SAVE_AS;
+
 	chooserdialog = (GtkFileChooserDialog *) gtk_file_chooser_dialog_new(
 		"Dialog Test", NULL, action,
 		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-		GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
+		button, GTK_RESPONSE_ACCEPT,
 		NULL);
 	/* give proper polymorphic types to avoid compiler warnings */
 	chooser = (GtkFileChooser *) chooserdialog;
