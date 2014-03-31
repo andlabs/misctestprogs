@@ -12,11 +12,19 @@
 
 static gboolean nonlocal = FALSE;
 static gboolean multisel = FALSE;
+static gboolean showhidden = FALSE;
+static gboolean confirm = FALSE;
+static gboolean mkdir = FALSE;
+static gboolean filter = FALSE;
 
 #define flagBool(name, help) { #name, 0, 0, G_OPTION_ARG_NONE, &name, help, NULL }
 static GOptionEntry flags[] = {
 	flagBool(nonlocal, "allow nonlocal files"),
 	flagBool(multisel, "allow multiple selection"),
+	flagBool(showhidden, "show hidden files"),
+	flagBool(confirm, "confirm on overwrite"),
+	flagBool(mkdir, "provide new folder button"),
+	flagBool(filter, "apply some test filters"),
 	{ NULL },
 };
 
@@ -98,6 +106,31 @@ int main(int argc, char *argv[])
 
 	gtk_file_chooser_set_local_only(chooser, !nonlocal);
 	gtk_file_chooser_set_select_multiple(chooser, multisel);
+	/* TODO seems to have no effect? */
+	gtk_file_chooser_set_show_hidden(chooser, showhidden);
+	gtk_file_chooser_set_do_overwrite_confirmation(chooser, confirm);
+	gtk_file_chooser_set_create_folders(chooser, mkdir);
+
+	if (filter) {
+		GtkFileFilter *filter;
+
+		filter = gtk_file_filter_new();
+		gtk_file_filter_set_name(filter, "C files");
+		gtk_file_filter_add_pattern(filter, "*.c");
+		gtk_file_chooser_add_filter(chooser, filter);
+		filter = gtk_file_filter_new();
+		gtk_file_filter_set_name(filter, "Name only");
+		gtk_file_chooser_add_filter(chooser, filter);
+		filter = gtk_file_filter_new();
+		gtk_file_filter_add_pattern(filter, "*.patternonly");
+		gtk_file_chooser_add_filter(chooser, filter);
+		gtk_file_chooser_add_filter(chooser, gtk_file_filter_new());
+		/* this is how to make an All Files filter according to the docs */
+		filter = gtk_file_filter_new();
+		gtk_file_filter_add_pattern(filter, "*");
+		gtk_file_filter_set_name(filter, "All files");		/* but it doesn't have a name? TODO */
+		gtk_file_chooser_add_filter(chooser, filter);
+	}
 
 	response = gtk_dialog_run(dialog);
 	if (response == GTK_RESPONSE_ACCEPT)
