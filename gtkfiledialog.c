@@ -11,14 +11,35 @@
 #include <gtk/gtk.h>
 
 static gboolean nonlocal = FALSE;
+static gboolean multisel = FALSE;
 
 #define flagBool(name, help) { #name, 0, 0, G_OPTION_ARG_NONE, &name, help, NULL }
 static GOptionEntry flags[] = {
 	flagBool(nonlocal, "allow nonlocal files"),
+	flagBool(multisel, "allow multiple selection"),
 	{ NULL },
 };
 
 static GtkFileChooserAction action;
+
+char *slistToString(GSList *list)
+{
+	GString *str;
+
+	if (list == NULL) {
+		return "[]";
+	}
+	str = g_string_new("[");
+	str = g_string_append(str, (gchar *) list->data);
+	list = list->next;
+	while (list != NULL) {
+		str = g_string_append(str, "\n\t");
+		str = g_string_append(str, (gchar *) list->data);
+		list = list->next;
+	}
+	str = g_string_append(str, "]");
+	return (char *) str->str;
+}
 
 void init(int *argc, char *(*argv[]))
 {
@@ -77,12 +98,15 @@ int main(int argc, char *argv[])
 	dialog = (GtkDialog *) chooserdialog;
 
 	gtk_file_chooser_set_local_only(chooser, !nonlocal);
+	gtk_file_chooser_set_select_multiple(chooser, multisel);
 
 	response = gtk_dialog_run(dialog);
 	if (response == GTK_RESPONSE_ACCEPT) {
-		printf("user selection made\nfilename: %s\nURI: %s\n",
+		printf("user selection made\nfilename: %s\nURI: %s\nfilenames: %s\nURIs: %s\n",
 			gtk_file_chooser_get_filename(chooser),
-			gtk_file_chooser_get_uri(chooser));
+			gtk_file_chooser_get_uri(chooser),
+			slistToString(gtk_file_chooser_get_filenames(chooser)),
+			slistToString(gtk_file_chooser_get_uris(chooser)));
 	} else
 		printf("user aborted selection (return: %d)\n", response);
 
