@@ -16,8 +16,11 @@ static gboolean showhidden = FALSE;
 static gboolean confirm = FALSE;
 static gboolean mkdir = FALSE;
 static gboolean filter = FALSE;
+static gchar *defname = NULL;
+static gchar *initpath = NULL;
 
 #define flagBool(name, help) { #name, 0, 0, G_OPTION_ARG_NONE, &name, help, NULL }
+#define flagString(name, help) { #name, 0, 0, G_OPTION_ARG_STRING, &name, help, NULL }
 static GOptionEntry flags[] = {
 	flagBool(nonlocal, "allow nonlocal files"),
 	flagBool(multisel, "allow multiple selection"),
@@ -25,6 +28,8 @@ static GOptionEntry flags[] = {
 	flagBool(confirm, "confirm on overwrite"),
 	flagBool(mkdir, "provide new folder button"),
 	flagBool(filter, "apply some test filters"),
+	flagString(defname, "specify a default filename"),
+	flagString(initpath, "specify an initial filename"),
 	{ NULL },
 };
 
@@ -131,6 +136,11 @@ int main(int argc, char *argv[])
 		gtk_file_filter_set_name(filter, "All files");		/* but it doesn't have a name? TODO */
 		gtk_file_chooser_add_filter(chooser, filter);
 	}
+
+	if (defname != NULL)
+		gtk_file_chooser_set_current_name(chooser, defname);
+	if (initpath != NULL)
+		gtk_file_chooser_set_filename(chooser, initpath);
 
 	response = gtk_dialog_run(dialog);
 	if (response == GTK_RESPONSE_ACCEPT)
