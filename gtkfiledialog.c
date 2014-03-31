@@ -26,9 +26,8 @@ char *slistToString(GSList *list)
 {
 	GString *str;
 
-	if (list == NULL) {
+	if (list == NULL)
 		return "[]";
-	}
 	str = g_string_new("[");
 	str = g_string_append(str, (gchar *) list->data);
 	list = list->next;
@@ -101,13 +100,13 @@ int main(int argc, char *argv[])
 	gtk_file_chooser_set_select_multiple(chooser, multisel);
 
 	response = gtk_dialog_run(dialog);
-	if (response == GTK_RESPONSE_ACCEPT) {
+	if (response == GTK_RESPONSE_ACCEPT)
 		printf("user selection made\nfilename: %s\nURI: %s\nfilenames: %s\nURIs: %s\n",
 			gtk_file_chooser_get_filename(chooser),
 			gtk_file_chooser_get_uri(chooser),
 			slistToString(gtk_file_chooser_get_filenames(chooser)),
 			slistToString(gtk_file_chooser_get_uris(chooser)));
-	} else
+	else
 		printf("user aborted selection (return: %d)\n", response);
 
 	return 0;
