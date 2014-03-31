@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* only care about versions of GLib/GTK+ I'm targeting */
+#define GLIB_VERSION_MIN_REQUIRED GLIB_VERSION_2_32
+#define GLIB_VERSION_MAX_ALLOWED GLIB_VERSION_2_32
+#define GDK_VERSION_MIN_REQUIRED GDK_VERSION_3_4
+#define GDK_VERSION_MAX_ALLOWED GDK_VERSION_3_4
 #include <gtk/gtk.h>
 
 static gboolean nonlocal = FALSE;
@@ -54,6 +60,31 @@ usage:
 
 int main(int argc, char *argv[])
 {
+	GtkFileChooserDialog *chooserdialog;
+	GtkFileChooser *chooser;
+	GtkDialog *dialog;
+	gint response;
+
 	init(&argc, &argv);
+
+	chooserdialog = (GtkFileChooserDialog *) gtk_file_chooser_dialog_new(
+		"Dialog Test", NULL, action,
+		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
+		NULL);
+	/* give proper polymorphic types to avoid compiler warnings */
+	chooser = (GtkFileChooser *) chooserdialog;
+	dialog = (GtkDialog *) chooserdialog;
+
+	gtk_file_chooser_set_local_only(chooser, !nonlocal);
+
+	response = gtk_dialog_run(dialog);
+	if (response == GTK_RESPONSE_ACCEPT) {
+		printf("user selection made\nfilename: %s\nURI: %s\n",
+			gtk_file_chooser_get_filename(chooser),
+			gtk_file_chooser_get_uri(chooser));
+	} else
+		printf("user aborted selection (return: %d)\n", response);
+
 	return 0;
 }
