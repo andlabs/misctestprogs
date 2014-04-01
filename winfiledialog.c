@@ -8,31 +8,61 @@
 #include <strings.h>
 #include <getopt.h>
 
+/* cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too) */
+#define flagBool(name, help, short) { name, no_argument, (int *) help, short }
+static struct option flags[] = {
+	flagBool("help", "show help and quit", 'h'),
+	{ 0, 0, 0, 0 },
+};
+
 static BOOL WINAPI (*action)(LPOPENFILENAME);
 
 /* "If the buffer is too small, the function returns FALSE and the CommDlgExtendedError function returns FNERR_BUFFERTOOSMALL. In this case, the first two bytes of the lpstrFile buffer contain the required size, in bytes or characters." - so how do we re-get the filename? TODO */
 #define ourBufSize 4096 + 2		/* for two null terminators */
 static TCHAR filenames[ourBufSize];
 
-/*
-void init(int *argc, char *(*argv[]))
+UINT_PTR CALLBACK oldStyleHook(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 {
-	char *mode;
+	/* MSDN says to do this */
+	return FALSE;
+}
 
-	if (*argc != 2)
+void init(int argc, char *argv[])
+{
+	int usageExit = 1;
+	char *mode;
+	char *opthelp[512];		/* more than enough */
+	int i;
+
+	for (i = 0; flags[i].name != 0; i++) {
+		opthelp[i] = (char *) flags[i].flag;
+		flags[i].flag = NULL;
+	}
+
+	for (;;) {
+		int c;
+
+		c = getopt_long_only(argc, argv, "", flags, NULL);
+		if (c == -1)
+			break;
+		switch (c) {
+		case 'h':		/* -help */
+			usageExit = 0;
+			goto usage;
+		case '?':
+			/* getopt_long_only() should have printed something since we did not set opterr to 0 */
+			goto usage;
+		}
+	}
+
+	if (optind != argc - 1)		/* equivalent to argc != 2 */
 		goto usage;
-	mode = (*argv)[1];
+	mode = argv[optind];
 	if (strcmp(mode, "open") == 0)
 		action = GetOpenFileName;
 	else if (strcmp(mode, "save") == 0)
 		action = GetSaveFileName;
-	else if (strcmp(mode, "opendir") == 0) {
-		action = GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
-		button = GTK_STOCK_OPEN;
-	} else if (strcmp(mode, "savedir") == 0) {
-		action = GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER;
-		button = GTK_STOCK_SAVE;
-	} else {
+	else {
 		fprintf(stderr, "error: unknown mode %s\n", mode);
 		goto usage;
 	}
@@ -40,17 +70,20 @@ void init(int *argc, char *(*argv[]))
 	return;
 
 usage:
-	fprintf(stderr, "%s\n", g_option_context_get_help(flagscontext, FALSE, NULL));
-	exit(1);
+	fprintf(stderr, "usage: %s [options] {open|save}\n", argv[0]);
+	for (i = 0; flags[i].name != 0; i++)
+		fprintf(stderr, "\t-%s%s - %s\n",
+			flags[i].name,
+			(flags[i].has_arg == required_argument) ? " string" : "",
+			opthelp[i]);
+	exit(usageExit);
 }
-*/
 
 int main(int argc, char *argv[])
 {
 	OPENFILENAME ofn;
 
-//	init(&argc, &argv);
-	action=GetOpenFileName;
+	init(argc, argv);
 
 	ofn.lStructSize = sizeof (ofn);
 	ofn.hwndOwner = NULL;
@@ -66,15 +99,30 @@ int main(int argc, char *argv[])
 	ofn.nMaxFileTitle = 0;
 	ofn.lpstrInitialDir = NULL;
 	ofn.lpstrTitle = NULL;
-	ofn.Flags = 0;
+//	ofn.Flags = 0;
+	ofn.Flags = OFN_ENABLEHOOK;
 	ofn.nFileOffset = 0;
 	ofn.nFileExtension = 0;
 	ofn.lpstrDefExt = NULL;
 	ofn.lCustData = 0;
-	ofn.lpfnHook = NULL;
+//	ofn.lpfnHook = NULL;
+	ofn.lpfnHook = oldStyleHook;
 	ofn.lpTemplateName = NULL;
 	ofn.FlagsEx = 0;
 
-	printf("%d\n", (*action)(&ofn));
+	if ((*action)(&ofn) != 0) {
+		/* TODO */
+	} else {
+		DWORD ret;
+
+		ret = CommDlgExtendedError();
+		if (ret == 0)
+			printf("user aborted selection\n");
+		else {
+			printf("error in dialog box (return %d)\n", ret);
+			return 1;
+		}
+	}
+
 	return 0;
 }
