@@ -14,6 +14,10 @@ static char *initpath = NULL;
 static int multisel = 0;
 static int confirmnew = 0;
 static int oldstyle = 0;
+static int showhidden = 0;
+static int nonlocal = 0;
+static int confirm = 0;
+static int helpbutton = 0;
 
 /* cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too) */
 #define flagBool(name, help, short) { name, no_argument, (int *) help, short }
@@ -25,6 +29,10 @@ static struct option flags[] = {
 	flagBool("multisel", "allow multiple selection", 'm'),
 	flagBool("confirmnew", "confirm on create", 'C'),
 	flagBool("oldstyle", "use old-style dialog", 'o'),
+	flagBool("showhidden", "show hidden files", 'H'),
+	flagBool("nonlocal", "allow nonlocal files", 'n'),
+	flagBool("confirm", "confirm on overwrite", 'c'),
+	flagBool("helpbutton", "add Help button", 'e'),
 	flagBool("help", "show help and quit", 'h'),
 	{ 0, 0, 0, 0 },
 };
@@ -85,6 +93,18 @@ void init(int argc, char *argv[])
 			break;
 		case 'o':
 			oldstyle = 1;
+			break;
+		case 'H':
+			showhidden = 1;
+			break;
+		case 'n':
+			nonlocal = 1;
+			break;
+		case 'c':
+			confirm = 1;
+			break;
+		case 'e':
+			helpbutton = 1;
 			break;
 		case 'h':		/* -help */
 			usageExit = 0;
@@ -169,10 +189,19 @@ int main(int argc, char *argv[])
 		/* needed for an old-style dialog */
 		ofn.Flags |= OFN_ENABLEHOOK;
 		ofn.lpfnHook = oldStyleHook;
+		/* TODO we can also set OFN_LONGNAMES */
 	} else {
 		ofn.Flags |= OFN_EXPLORER;
 		ofn.lpfnHook = NULL;
 	}
+	if (showhidden)	/* TODO does nothing? */
+		ofn.Flags |= OFN_FORCESHOWHIDDEN;
+	if (!nonlocal)
+		ofn.Flags |= OFN_NONETWORKBUTTON;
+	if (confirm)
+		ofn.Flags |= OFN_OVERWRITEPROMPT;
+	if (helpbutton)
+		ofn.Flags |= OFN_SHOWHELP;
 
 	ofn.nFileOffset = 0;
 	ofn.nFileExtension = 0;
@@ -189,7 +218,6 @@ int main(int argc, char *argv[])
 			int i;
 			int divider;
 
-			printf("filenames: [");
 			divider = '\0';
 			if (oldstyle)
 				divider = ' ';
@@ -200,8 +228,9 @@ int main(int argc, char *argv[])
 			filenames[i] = '\0';		/* null-terminate */
 			i++;
 
-			/* TODO if one filename is selected, take differnet logic */
+			/* TODO determine how to detect if only one filename selected */
 
+			printf("filenames: [");
 			while (filenames[i] != divider) {
 				int start = i;
 
@@ -214,7 +243,6 @@ int main(int argc, char *argv[])
 				if (filenames[i] != divider)
 					printf("\n\t");
 			}
-
 			printf("]\n");
 		}
 	} else {
