@@ -9,16 +9,28 @@ static BOOL mkdir = NO;
 static BOOL showhidden = NO;
 static char *initpath = NULL;
 static char *defname = NULL;
+static BOOL aliases = NO;
+static BOOL multisel = NO;
+static BOOL filter = NO;
+static BOOL filterelse = NO;
+static BOOL brushed = NO;
+static BOOL unified = NO;
 
 /* cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too) */
 #define flagBool(name, help, short) { name, no_argument, (int *) help, short }
 #define flagString(name, help, short) { name, required_argument, (int *) help, short }
 static struct option flags[] = {
 	flagBool("mkdir", "provide New Folder button", 'M'),
-	flagBool("help", "show help and quit", 'h'),
 	flagBool("showhidden", "show hidden files", 'H'),
 	flagString("initpath", "specify an initial filename", 'p'),
 	flagString("defname", "specify a default filename", 'd'),
+	flagBool("aliases", "resolve aliases (not for save)", 'a'),
+	flagBool("multisel", "allow multiple selection (not for save)", 'm'),
+	flagBool("filter", "apply some test filters (not the same as in the other tests)", 'f'),
+	flagBool("filterelse", "setAllowsOtherFileTypes:YES", 'F'),
+	flagBool("brushed", "use brushed metal appearance (for fun)", 'b'),
+	flagBool("unified", "use unified titlebar/toolbar appearance (for fun)", 'u'),
+	flagBool("help", "show help and quit", 'h'),
 	{ 0, 0, 0, 0 },
 };
 
@@ -56,6 +68,24 @@ void init(int argc, char *argv[])
 			break;
 		case 'd':
 			defname = optarg;
+			break;
+		case 'a':
+			aliases = YES;
+			break;
+		case 'm':
+			multisel = YES;
+			break;
+		case 'f':
+			filter = YES;
+			break;
+		case 'F':
+			filterelse = YES;
+			break;
+		case 'b':
+			brushed = YES;
+			break;
+		case 'u':
+			unified = YES;
 			break;
 		case 'h':		/* -help */
 			usageExit = 0;
@@ -112,10 +142,18 @@ int main(int argc, char *argv[])
 		[panel setDirectoryURL:[NSURL fileURLWithPath:STR(initpath)]];
 	if (defname != NULL)
 		[panel setNameFieldStringValue:STR(defname)];
-
-	[panel setAllowedFileTypes:
-		[NSArray arrayWithObjects:@"c",@"d",nil]];
-	[panel setAllowsOtherFileTypes:YES];
+	if (filter)
+		[panel setAllowedFileTypes:
+			[NSArray arrayWithObjects:@"c",@"d",nil]];
+	[panel setAllowsOtherFileTypes:filterelse];
+	if ([panel isKindOfClass:[NSOpenPanel class]]) {
+		[panel setResolvesAliases:aliases];
+		[panel setAllowsMultipleSelection:multisel];
+	}
+	if (brushed)
+		[panel setStyleMask:([panel styleMask] | NSTexturedBackgroundWindowMask)];
+	if (unified)
+		[panel setStyleMask:([panel styleMask] | NSUnifiedTitleAndToolbarWindowMask)];
 
 	if ([panel runModal] == NSFileHandlingPanelOKButton) {
 		printf("user selection made\n");
