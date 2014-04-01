@@ -218,31 +218,36 @@ int main(int argc, char *argv[])
 			int i;
 			int divider;
 
+			printf("filenames: [");
+
 			divider = '\0';
 			if (oldstyle)
 				divider = ' ';
 
 			/* isolate the directory */
-			for (i = 0; filenames[i] != divider; i++)
+			/* extra \0 case for old-style dialogs */
+			for (i = 0; filenames[i] != divider && filenames[i] != '\0'; i++)
 				;
 			filenames[i] = '\0';		/* null-terminate */
 			i++;
 
-			/* TODO determine how to detect if only one filename selected */
+			if (filenames[i] == '\0')	/* old-style: just \0; new-style: \0\0 */
+				/* just the filename by itself - thanks to Xeek and maztheman in irc.freenode.net/#winapi for clearing up the \0\0 issue */
+				printf(SFMT, filenames);
+			else
+				while (filenames[i] != '\0') {
+					int start = i;
 
-			printf("filenames: [");
-			while (filenames[i] != divider) {
-				int start = i;
+					/* do the above but for the current filename */
+					for (; filenames[i] != divider && filenames[i] != '\0'; i++)
+						;
+					filenames[i] = '\0';
+					printf(SFMT "\\" SFMT, filenames, &filenames[start]);
+					i++;
+					if (filenames[i] != divider && filenames[i] != '\0')
+						printf("\n\t");
+				}
 
-				/* do the above but for the current filename */
-				for (; filenames[i] != divider; i++)
-					;
-				filenames[i] = '\0';
-				printf(SFMT "\\" SFMT, filenames, &filenames[start]);
-				i++;
-				if (filenames[i] != divider)
-					printf("\n\t");
-			}
 			printf("]\n");
 		}
 	} else {
