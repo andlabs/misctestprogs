@@ -23,6 +23,8 @@ char *mergeargs(int argc, char *argv[])
 
 void printDescription(PangoFontDescription *desc)
 {
+	char *s;
+
 	printf("desc->family: %s\n", pango_font_description_get_family(desc));
 	printf("desc->style: ");
 	switch (pango_font_description_get_style(desc)) {
@@ -57,6 +59,12 @@ void printDescription(PangoFontDescription *desc)
 	printf("desc->size: %d (absolute == %s)\n", pango_font_description_get_size(desc), BOOLSTR(pango_font_description_get_size_is_absolute(desc)));
 	printf("desc->gravity: %d\n", pango_font_description_get_gravity(desc));
 	/* TODO use pango_font_description_get_set_fields */
+	s = pango_font_description_to_string(desc);
+	printf("desc to string: %s\n", s);
+	g_free(s);
+	s = pango_font_description_to_filename(desc);
+	printf("desc to filename: %s\n", s);
+	g_free(s);
 }
 
 void describeFace(PangoFontFace *face)
