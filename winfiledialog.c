@@ -12,6 +12,8 @@ static int filter = 0;
 static char *defname = NULL;
 static char *initpath = NULL;
 static int multisel = 0;
+static int confirmnew = 0;
+static int oldstyle = 0;
 
 /* cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too) */
 #define flagBool(name, help, short) { name, no_argument, (int *) help, short }
@@ -21,6 +23,8 @@ static struct option flags[] = {
 	flagString("defname", "specify a default filename", 'd'),
 	flagString("initpath", "specify an initial filename", 'p'),
 	flagBool("multisel", "allow multiple selection", 'm'),
+	flagBool("confirmnew", "confirm on create", 'C'),
+	flagBool("oldstyle", "use old-style dialog", 'o'),
 	flagBool("help", "show help and quit", 'h'),
 	{ 0, 0, 0, 0 },
 };
@@ -75,6 +79,12 @@ void init(int argc, char *argv[])
 			break;
 		case 'm':
 			multisel = 1;
+			break;
+		case 'C':
+			confirmnew = 1;
+			break;
+		case 'o':
+			oldstyle = 1;
 			break;
 		case 'h':		/* -help */
 			usageExit = 0;
@@ -150,17 +160,24 @@ int main(int argc, char *argv[])
 	ofn.lpstrInitialDir = NULL;
 	ofn.lpstrTitle = NULL;
 
-	ofn.Flags = OFN_EXPLORER;
-//	ofn.Flags = 0;//OFN_ENABLEHOOK;
+	ofn.Flags = 0;
 	if (multisel)
 		ofn.Flags |= OFN_ALLOWMULTISELECT;
+	if (confirmnew)
+		ofn.Flags |= OFN_CREATEPROMPT;
+	if (oldstyle) {
+		/* needed for an old-style dialog */
+		ofn.Flags |= OFN_ENABLEHOOK;
+		ofn.lpfnHook = oldStyleHook;
+	} else {
+		ofn.Flags |= OFN_EXPLORER;
+		ofn.lpfnHook = NULL;
+	}
 
 	ofn.nFileOffset = 0;
 	ofn.nFileExtension = 0;
 	ofn.lpstrDefExt = NULL;
 	ofn.lCustData = 0;
-	ofn.lpfnHook = NULL;
-//	ofn.lpfnHook = oldStyleHook;
 	ofn.lpTemplateName = NULL;
 	ofn.FlagsEx = 0;
 
@@ -174,9 +191,30 @@ int main(int argc, char *argv[])
 
 			printf("filenames: [");
 			divider = '\0';
-//			if (oldstyle)
-//				divider = ' ';
-			/* TODO */
+			if (oldstyle)
+				divider = ' ';
+
+			/* isolate the directory */
+			for (i = 0; filenames[i] != divider; i++)
+				;
+			filenames[i] = '\0';		/* null-terminate */
+			i++;
+
+			/* TODO if one filename is selected, take differnet logic */
+
+			while (filenames[i] != divider) {
+				int start = i;
+
+				/* do the above but for the current filename */
+				for (; filenames[i] != divider; i++)
+					;
+				filenames[i] = '\0';
+				printf(SFMT "\\" SFMT, filenames, &filenames[start]);
+				i++;
+				if (filenames[i] != divider)
+					printf("\n\t");
+			}
+
 			printf("]\n");
 		}
 	} else {
