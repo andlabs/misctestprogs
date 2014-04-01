@@ -6,6 +6,8 @@
 
 PangoFontMap *pfm;
 
+#define BOOLSTR(b) ((b) ? "true" : "false")
+
 char *mergeargs(int argc, char *argv[])
 {
 	GString *str;
@@ -19,10 +21,58 @@ char *mergeargs(int argc, char *argv[])
 	return str->str;
 }
 
+void printDescription(PangoFontDescription *desc)
+{
+	printf("desc->family: %s\n", pango_font_description_get_family(desc));
+	printf("desc->style: ");
+	switch (pango_font_description_get_style(desc)) {
+	case PANGO_STYLE_NORMAL:
+		printf("normal");
+		break;
+	case PANGO_STYLE_OBLIQUE:
+		printf("oblique");
+		break;
+	case PANGO_STYLE_ITALIC:
+		printf("italic");
+		break;
+	default:
+		fprintf(stderr, "!!! unknown style\n");
+	}
+	printf("\n");
+	printf("desc->variant: ");
+	switch (pango_font_description_get_variant(desc)) {
+	case PANGO_VARIANT_NORMAL:
+		printf("normal");
+		break;
+	case PANGO_VARIANT_SMALL_CAPS:
+		printf("small caps");
+		break;
+	default:
+		fprintf(stderr, "!!! unknown variant\n");
+	}
+	printf("\n");
+	/* TODO these should use strings */
+	printf("desc->weight: %d\n", pango_font_description_get_weight(desc));
+	printf("desc->stretch: %d\n", pango_font_description_get_stretch(desc));
+	printf("desc->size: %d (absolute == %s)\n", pango_font_description_get_size(desc), BOOLSTR(pango_font_description_get_size_is_absolute(desc)));
+	printf("desc->gravity: %d\n", pango_font_description_get_gravity(desc));
+	/* TODO use pango_font_description_get_set_fields */
+}
+
 void describeFace(PangoFontFace *face)
 {
+	int *sizes;
+	int i, nSizes;
+
 	printf("face name: %s\n", pango_font_face_get_face_name(face));
+	pango_font_face_list_sizes(face, &sizes, &nSizes);
+	printf("sizes:");
+	for (i = 0; i < nSizes; i++)
+		printf(" %d", sizes[i]);
 	printf("\n");
+	g_free(sizes);
+	printDescription(pango_font_face_describe(face));
+	printf("synthesized: %s\n", BOOLSTR(pango_font_face_is_synthesized(face)));
 }
 
 int findFont(int argc, char *argv[])
@@ -48,8 +98,11 @@ int findFont(int argc, char *argv[])
 
 familyFound:
 	pango_font_family_list_faces(family, &faces, &nFaces);
-	for (i = 0; i < nFaces; i++)
+	for (i = 0; i < nFaces; i++) {
 		describeFace(faces[i]);
+		if (i != nFaces - 1)
+			printf("\n");
+	}
 
 end:
 	if (faces != NULL)
@@ -74,7 +127,7 @@ int main(int argc, char *argv[])
 		PangoFontFamily *family = families[i];
 
 		printf("%5s %s\n",
-			(pango_font_family_is_monospace(family) ? "true" : "false"),
+			BOOLSTR(pango_font_family_is_monospace(family)),
 			pango_font_family_get_name(family));
 	}
 	g_free(families);
