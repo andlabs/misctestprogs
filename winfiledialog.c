@@ -5,12 +5,22 @@
 #define _UNICODE
 #include <windows.h>
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include <getopt.h>
+
+static int filter = 0;
+static char *defname = NULL;
+static char *initpath = NULL;
+static int multisel = 0;
 
 /* cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too) */
 #define flagBool(name, help, short) { name, no_argument, (int *) help, short }
+#define flagString(name, help, short) { name, required_argument, (int *) help, short }
 static struct option flags[] = {
+	flagBool("filter", "apply some test filters", 'f'),
+	flagString("defname", "specify a default filename", 'd'),
+	flagString("initpath", "specify an initial filename", 'p'),
+	flagBool("multisel", "allow multiple selection", 'm'),
 	flagBool("help", "show help and quit", 'h'),
 	{ 0, 0, 0, 0 },
 };
@@ -20,6 +30,14 @@ static BOOL WINAPI (*action)(LPOPENFILENAME);
 /* "If the buffer is too small, the function returns FALSE and the CommDlgExtendedError function returns FNERR_BUFFERTOOSMALL. In this case, the first two bytes of the lpstrFile buffer contain the required size, in bytes or characters." - so how do we re-get the filename? TODO */
 #define ourBufSize 4096 + 2		/* for two null terminators */
 static TCHAR filenames[ourBufSize];
+
+#ifdef UNICODE
+#define SFMT "%S"
+#define SNPRINTF snwprintf
+#else
+#define SFMT "%s"
+#define SNPRINTF snprintf
+#endif
 
 UINT_PTR CALLBACK oldStyleHook(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -46,12 +64,27 @@ void init(int argc, char *argv[])
 		if (c == -1)
 			break;
 		switch (c) {
+		case 'f':		/* -filter */
+			filter = 1;
+			break;
+		case 'd':
+			defname = optarg;
+			break;
+		case 'p':
+			initpath = optarg;
+			break;
+		case 'm':
+			multisel = 1;
+			break;
 		case 'h':		/* -help */
 			usageExit = 0;
 			goto usage;
 		case '?':
 			/* getopt_long_only() should have printed something since we did not set opterr to 0 */
 			goto usage;
+		default:
+			fprintf(stderr, "internal error: getopt_long_only() returned %d\n", c);
+			exit(1);
 		}
 	}
 
@@ -88,30 +121,64 @@ int main(int argc, char *argv[])
 	ofn.lStructSize = sizeof (ofn);
 	ofn.hwndOwner = NULL;
 	ofn.hInstance = NULL;
+
 	ofn.lpstrFilter = NULL;
+	if (filter)
+		ofn.lpstrFilter = TEXT(
+			"C files\0*.c\0"
+			/* can't really have name only, filter only, or nothing filters because that would imply \0\0 which ends the list */
+			"All Files\0*.*\0\0");		/* MSDN says to use this string for links */
+
 	ofn.lpstrCustomFilter = NULL;
 	ofn.nMaxCustFilter = 0;
 	ofn.nFilterIndex = 0;
-	ofn.lpstrFile = filenames;
+
+	if (defname != NULL && initpath != NULL)
+		SNPRINTF(filenames, ourBufSize, TEXT(SFMT "\\" SFMT), initpath, defname);
+	else if (defname != NULL)
+		SNPRINTF(filenames, ourBufSize, TEXT(SFMT), defname);
+	else if (initpath != NULL)
+		/* this is flaky; it either uses initpath as defname or outright crashes */
+		SNPRINTF(filenames, ourBufSize, TEXT(SFMT), initpath);
+	else
 		filenames[0] = '\0';
+	ofn.lpstrFile = filenames;
 	ofn.nMaxFile = ourBufSize;
+
 	ofn.lpstrFileTitle = NULL;
 	ofn.nMaxFileTitle = 0;
 	ofn.lpstrInitialDir = NULL;
 	ofn.lpstrTitle = NULL;
-//	ofn.Flags = 0;
-	ofn.Flags = OFN_ENABLEHOOK;
+
+	ofn.Flags = OFN_EXPLORER;
+//	ofn.Flags = 0;//OFN_ENABLEHOOK;
+	if (multisel)
+		ofn.Flags |= OFN_ALLOWMULTISELECT;
+
 	ofn.nFileOffset = 0;
 	ofn.nFileExtension = 0;
 	ofn.lpstrDefExt = NULL;
 	ofn.lCustData = 0;
-//	ofn.lpfnHook = NULL;
-	ofn.lpfnHook = oldStyleHook;
+	ofn.lpfnHook = NULL;
+//	ofn.lpfnHook = oldStyleHook;
 	ofn.lpTemplateName = NULL;
 	ofn.FlagsEx = 0;
 
 	if ((*action)(&ofn) != 0) {
-		/* TODO */
+		printf("user selection made\n");
+		if (!multisel)
+			printf("filename: " SFMT "\n", filenames);
+		else {
+			int i;
+			int divider;
+
+			printf("filenames: [");
+			divider = '\0';
+//			if (oldstyle)
+//				divider = ' ';
+			/* TODO */
+			printf("]\n");
+		}
 	} else {
 		DWORD ret;
 
@@ -119,7 +186,7 @@ int main(int argc, char *argv[])
 		if (ret == 0)
 			printf("user aborted selection\n");
 		else {
-			printf("error in dialog box (return %d)\n", ret);
+			fprintf(stderr, "error in dialog box (return %d)\n", ret);
 			return 1;
 		}
 	}
