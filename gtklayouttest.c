@@ -98,8 +98,4 @@ int main(int argc, char *argv[])
 
 	gtk_main();
 	return 0;
-
-usage:
-	fprintf(stderr, "usage: %s {windowOnly|drawingArea|layoutNoDraw|layoutDrawSelf|layoutDrawBin}\n", argv[0]);
-	return 1;
 }
