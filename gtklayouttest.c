@@ -1,5 +1,4 @@
-/* pietro gagliardi 7-8 april 2014 */
-/* please disregard the lack of pointer conversion safety here (clang -Wno-incompatible-pointer-types will silence the warnings) */
+/* pietro gagliardi - 7-8 april 2014 */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -49,7 +48,7 @@ gboolean draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	double x, y, w, h;
 
 	if (binwin)
-		cr = gdk_cairo_create(gtk_layout_get_bin_window(widget));
+		cr = gdk_cairo_create(gtk_layout_get_bin_window((GtkLayout *) widget));
 
 	cairo_clip_extents(cr, &x, &y, &w, &h);
 	cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
@@ -68,32 +67,31 @@ gboolean draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 
 int main(int argc, char *argv[])
 {
-	GtkWindow *w;
-	void *q;
-	char *opt;
+	GtkWidget *w;
+	GtkWidget *q;
 
 	parseargs(argc, argv);
 	gtk_init(NULL, NULL);
 
 	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	g_signal_connect(w, "destroy", gtk_main_quit, NULL);
+	g_signal_connect(w, "destroy", G_CALLBACK(gtk_main_quit), NULL);
 
 	if (!windowonly) {
 		if (drawingarea) {
 			q = gtk_drawing_area_new();
 			if (viewport) {
-				GtkScrolledWindow *sw;
+				GtkWidget *sw;
 
 				sw = gtk_scrolled_window_new(NULL, NULL);
-				gtk_scrolled_window_add_with_viewport(sw, q);
+				gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(sw), q);
 				q = sw;
 			}
 		} else {
 			q = gtk_layout_new(NULL, NULL);
 			if (drawsig)
-				g_signal_connect(q, "draw", draw, NULL);
+				g_signal_connect(q, "draw", G_CALLBACK(draw), NULL);
 		}
-		gtk_container_add(w, q);
+		gtk_container_add(GTK_CONTAINER(w), q);
 	}
 
 	gtk_widget_show_all(w);
