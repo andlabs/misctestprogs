@@ -20,7 +20,7 @@ void parseargs(int argc, char *argv[])
 #define extra(str) (argc == 3 && strcmp(argv[2], str) == 0)
 #define noextra(cond) if (!(cond) && argc == 3) goto usage;
 	if (strcmp(argv[1], "windowOnly") == 0) {
-		noextra(TRUE);
+		noextra(FALSE);
 		windowonly = TRUE;
 		return;
 	} else if (strcmp(argv[1], "drawingArea") == 0) {
