@@ -11,6 +11,14 @@ gboolean drawingarea = FALSE;
 gboolean viewport = FALSE;
 gboolean drawsig = FALSE;
 gboolean binwin = FALSE;
+gboolean override = FALSE;
+gboolean css = FALSE;
+
+GdkRGBA transparent = { 0, 0, 0, 0 };
+
+const char newcss[] = "GtkLayout {\n"
+	"\tbackground-color: transparent;\n"
+	"}\n";
 
 void parseargs(int argc, char *argv[])
 {
@@ -31,7 +39,9 @@ void parseargs(int argc, char *argv[])
 	} else if (strcmp(argv[1], "layout") == 0) {
 		binwin = extra("drawbin");
 		drawsig = binwin || extra("draw");
-		noextra(drawsig);
+		override = extra("override");
+		css = extra("css");
+		noextra(drawsig || override || css);
 		return;
 	}
 
@@ -39,7 +49,7 @@ usage:
 	fprintf(stderr, "usage:\n");
 	fprintf(stderr, "\t%s windowOnly\n", argv[0]);
 	fprintf(stderr, "\t%s drawingArea [viewport]\n", argv[0]);
-	fprintf(stderr, "\t%s layout [draw|drawbin]\n", argv[0]);
+	fprintf(stderr, "\t%s layout [draw|drawbin|override|css]\n", argv[0]);
 	exit(1);
 }
 
@@ -90,6 +100,26 @@ int main(int argc, char *argv[])
 			q = gtk_layout_new(NULL, NULL);
 			if (drawsig)
 				g_signal_connect(q, "draw", G_CALLBACK(draw), NULL);
+			/* for the next two, thanks ptomato in http://stackoverflow.com/questions/22940588/how-do-i-really-make-a-gtk-3-gtklayout-transparent-draw-theme-background */
+			if (override)
+				gtk_widget_override_background_color(q,
+					GTK_STATE_FLAG_NORMAL | GTK_STATE_FLAG_ACTIVE | GTK_STATE_FLAG_PRELIGHT | GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_INSENSITIVE | GTK_STATE_FLAG_INCONSISTENT | GTK_STATE_FLAG_FOCUSED | GTK_STATE_FLAG_BACKDROP,
+					&transparent);
+			if (css) {
+				GtkCssProvider *p;
+				GError *error = NULL;
+
+				p = gtk_css_provider_new();
+				if (gtk_css_provider_load_from_data(p, newcss,
+					strlen(newcss), &error) == FALSE) {
+					fprintf(stderr, "error loading CSS: %s\n", error->message);
+					exit(1);
+				}
+				gtk_style_context_add_provider(
+					gtk_widget_get_style_context(q),
+					(GtkStyleProvider *) p,
+					GTK_STYLE_PROVIDER_PRIORITY_USER);
+			}
 		}
 		gtk_container_add(GTK_CONTAINER(w), q);
 	}
