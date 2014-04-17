@@ -101,7 +101,14 @@ int main(int argc, char *argv[])
 	buildUI(mainwin);
 	firstShowWindow(mainwin);
 
-	while (GetMessage(&msg, NULL, 0, 0) > 0) {		// TODO check for errors
+	for (;;) {
+		BOOL gmret;
+
+		gmret = GetMessage(&msg, NULL, 0, 0);
+		if (gmret == -1)
+			panic("error getting message");
+		if (gmret == 0)
+			break;
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
