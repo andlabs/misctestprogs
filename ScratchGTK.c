@@ -1,8 +1,8 @@
-// scratch GTK+ program by pietro gagliardi 16 april 2014
+// scratch GTK+ program by pietro gagliardi 16-17 april 2014
 // uses code from 31 march 2014 and 15 april 2014
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #define GLIB_VERSION_MIN_REQUIRED GLIB_VERSION_2_32
 #define GLIB_VERSION_MAX_ALLOWED GLIB_VERSION_2_32
 #define GDK_VERSION_MIN_REQUIRED GDK_VERSION_3_4
