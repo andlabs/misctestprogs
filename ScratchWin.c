@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include <getopt.h>
 #include <windows.h>
-#include <commctrl.h>		// TODO have to include separately?
+#include <commctrl.h>		// needed for InitCommonControlsEx() (thanks Xeek in irc.freenode.net/#winapi for confirming)
 
 #ifdef  _MSC_VER
 #error sorry! the scratch windows program relies on mingw-only functionality! (specifically: asprintf(), getopt_long_only())
@@ -211,7 +211,6 @@ usage:
 	exit(usageExit);
 }
 
-// TODO make sure I can really use %S in MinGW asprintf()/vasprintf() - or find wide character equivalents
 void panic(char *fmt, ...)
 {
 	char *msg;
@@ -236,8 +235,9 @@ void panic(char *fmt, ...)
 		fprintf(stderr, "critical error: FormatMessage() failed in panic() preparing GetLastError() string; panic message = \"%s\", last error in panic(): %ld, last error from FormatMessage(): %ld\n", msg, lasterr, GetLastError());
 		abort();
 	}
-	if (asprintf(&fullmsg, "panic: %s\nlast error: %S\n", msg, lerrmsg) == -1) {
-		fprintf(stderr, "critical error: asprintf() failed in panic() preparing full report; panic message = \"%s\", last error message: \"%S\"\n", msg, lerrmsg);
+	// note to self: use %ws instead of %S (thanks jon_y in irc.oftc.net/#mingw-w64)
+	if (asprintf(&fullmsg, "panic: %s\nlast error: %ws\n", msg, lerrmsg) == -1) {
+		fprintf(stderr, "critical error: asprintf() failed in panic() preparing full report; panic message = \"%s\", last error message: \"%ws\"\n", msg, lerrmsg);
 		abort();
 	}
 	fprintf(stderr, "%s\n", fullmsg);
