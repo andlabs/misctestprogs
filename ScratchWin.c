@@ -135,7 +135,7 @@ void initwin(void)
 	if (hDefaultIcon == NULL)
 		panic("error getting default window class icon");
 	hDefaultCursor = LoadCursor(NULL, MAKEINTRESOURCE(IDC_ARROW));
-	if (hDefaultCursor = NULL)
+	if (hDefaultCursor == NULL)
 		panic("error getting default window cursor");
 	icc.dwSize = sizeof (INITCOMMONCONTROLSEX);
 	icc.dwICC = iccFlags;
@@ -146,7 +146,6 @@ void initwin(void)
 void init(int argc, char *argv[])
 {
 	int usageExit = 1;
-	char *mode;
 	char *opthelp[512];		// more than enough
 	int i;
 
@@ -193,6 +192,7 @@ usage:
 	exit(usageExit);
 }
 
+// TODO make sure I can really use %S in MinGW asprintf()/vasprintf() - or find wide character equivalents
 void panic(char *fmt, ...)
 {
 	char *msg;
