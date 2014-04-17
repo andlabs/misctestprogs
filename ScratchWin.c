@@ -2,7 +2,7 @@
 // borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014 and 11-12 april 2014
 #define _UNICODE
 #define UNICODE
-#define _GNU_SOURCE		// needed to define asprintf()/vasprintf()
+#define _GNU_SOURCE		// needed to declare asprintf()/vasprintf()
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
