@@ -27,6 +27,7 @@ static struct option flags[] = {
 HMODULE hInstance;
 HICON hDefaultIcon;
 HCURSOR hDefaultCursor;
+HFONT controlfont;
 
 void panic(char *fmt, ...);
 
@@ -81,7 +82,10 @@ HWND makeMainWindow(void)
 
 void buildUI(HWND mainwin)
 {
-	// ...
+#define CSTYLE (WS_CHILD | WS_VISIBLE)
+#define CXSTYLE (0)
+#define SETFONT(hwnd) SendMessage(hwnd, WM_SETFONT, (WPARAM) controlfont, (LPARAM) TRUE);
+	// build GUI here; use CSTYLE and CXSTYLE in CreateWindowEx() and call SETFONT() on each new widget
 }
 
 void firstShowWindow(HWND hwnd);
@@ -127,6 +131,7 @@ DWORD iccFlags =
 void initwin(void)
 {
 	INITCOMMONCONTROLSEX icc;
+	NONCLIENTMETRICS ncm;
 
 	hInstance = GetModuleHandle(NULL);
 	if (hInstance == NULL)
@@ -141,6 +146,13 @@ void initwin(void)
 	icc.dwICC = iccFlags;
 	if (InitCommonControlsEx(&icc) == FALSE)
 		panic("error initializing Common Controls");
+	ncm.cbSize = sizeof (NONCLIENTMETRICS);
+	if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS,
+		sizeof (NONCLIENTMETRICS), &ncm, 0) == 0)
+		panic("error getting non-client metrics for getting control font");
+	controlfont = CreateFontIndirect(&ncm.lfMessageFont);
+	if (controlfont == NULL)
+		panic("error getting control font");
 }
 
 void init(int argc, char *argv[])
