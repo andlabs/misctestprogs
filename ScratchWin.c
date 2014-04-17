@@ -1,4 +1,5 @@
 // scratch Windows program by pietro gagliardi 17 april 2014
+// borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014
 #define _UNICODE
 #define UNICODE
 #define _GNU_SOURCE
@@ -6,19 +7,91 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <getopt.h>
 #include <windows.h>
 
 #ifdef  _MSC_VER
-#error sorry! the scratch windows program relies on mingw-only functionality! (specifically: asprintf())
+#error sorry! the scratch windows program relies on mingw-only functionality! (specifically: asprintf(), getopt_long_only())
 #endif
+
+// cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too)
+#define flagBool(name, help, short) { name, no_argument, (int *) help, short }
+#define flagString(name, help, short) { name, required_argument, (int *) help, short }
+static struct option flags[] = {
+	// place other options here
+	flagBool("help", "show help and quit", 'h'),
+	{ 0, 0, 0, 0 },
+};
 
 void panic(char *fmt, ...);
 
+void init(int argc, char *argv[]);
+
+char *args = "";		// other command-line arguments here, if any
+
+BOOL parseArgs(int argc, char *argv[])
+{
+	// parse arguments here, if any; use optind
+	// return TRUE if parsed successfully; FALSE otherwise
+	// (returning FALSE will show usage and quit)
+	return TRUE;
+}
+
 int main(int argc, char *argv[])
 {
+	init(argc, argv);
+
 	SetLastError(4);
 	panic("last error test");
 	return 0;
+}
+
+void init(int argc, char *argv[])
+{
+	int usageExit = 1;
+	char *mode;
+	char *opthelp[512];		/* more than enough */
+	int i;
+
+	for (i = 0; flags[i].name != 0; i++) {
+		opthelp[i] = (char *) flags[i].flag;
+		flags[i].flag = NULL;
+	}
+
+	for (;;) {
+		int c;
+
+		c = getopt_long_only(argc, argv, "", flags, NULL);
+		if (c == -1)
+			break;
+		switch (c) {
+		case 'h':		/* -help */
+			usageExit = 0;
+			goto usage;
+		case '?':
+			/* getopt_long_only() should have printed something since we did not set opterr to 0 */
+			goto usage;
+		default:
+			fprintf(stderr, "internal error: getopt_long_only() returned %d\n", c);
+			exit(1);
+		}
+	}
+
+	if (parseArgs(argc, argv) == TRUE)
+		return;
+	// otherwise fall through
+
+usage:
+	fprintf(stderr, "usage: %s [options]", argv[0]);
+	if (args != NULL && *args != '\0')
+		fprintf(stderr, " %s", args);
+	fprintf(stderr, "\n");
+	for (i = 0; flags[i].name != 0; i++)
+		fprintf(stderr, "\t-%s%s - %s\n",
+			flags[i].name,
+			(flags[i].has_arg == required_argument) ? " string" : "",
+			opthelp[i]);
+	exit(usageExit);
 }
 
 void panic(char *fmt, ...)
