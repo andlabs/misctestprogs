@@ -2,7 +2,7 @@
 // borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014
 #define _UNICODE
 #define UNICODE
-#define _GNU_SOURCE
+#define _GNU_SOURCE		// needed to define asprintf()/vasprintf()
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,7 +50,7 @@ void init(int argc, char *argv[])
 {
 	int usageExit = 1;
 	char *mode;
-	char *opthelp[512];		/* more than enough */
+	char *opthelp[512];		// more than enough
 	int i;
 
 	for (i = 0; flags[i].name != 0; i++) {
@@ -65,11 +65,11 @@ void init(int argc, char *argv[])
 		if (c == -1)
 			break;
 		switch (c) {
-		case 'h':		/* -help */
+		case 'h':		// -help
 			usageExit = 0;
 			goto usage;
 		case '?':
-			/* getopt_long_only() should have printed something since we did not set opterr to 0 */
+			// getopt_long_only() should have printed something since we did not set opterr to 0
 			goto usage;
 		default:
 			fprintf(stderr, "internal error: getopt_long_only() returned %d\n", c);
