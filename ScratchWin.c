@@ -1,5 +1,5 @@
 // scratch Windows program by pietro gagliardi 17 april 2014
-// borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014
+// borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014 and 11-12 april 2014
 #define _UNICODE
 #define UNICODE
 #define _GNU_SOURCE		// needed to define asprintf()/vasprintf()
@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <getopt.h>
 #include <windows.h>
+#include <commctrl.h>		// TODO have to include separately?
 
 #ifdef  _MSC_VER
 #error sorry! the scratch windows program relies on mingw-only functionality! (specifically: asprintf(), getopt_long_only())
@@ -22,6 +23,10 @@ static struct option flags[] = {
 	flagBool("help", "show help and quit", 'h'),
 	{ 0, 0, 0, 0 },
 };
+
+HMODULE hInstance;
+HICON hDefaultIcon;
+HCURSOR hDefaultCursor;
 
 void panic(char *fmt, ...);
 
@@ -37,13 +42,105 @@ BOOL parseArgs(int argc, char *argv[])
 	return TRUE;
 }
 
+LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	switch (msg) {
+	case  WM_CLOSE:
+		PostQuitMessage(0);
+		return 0;
+	default:
+		return DefWindowProc(hwnd, msg, wparam, lparam);
+	}
+	panic("oops: message %ud does not return anything; bug in wndproc()", msg);
+}
+
+HWND makeMainWindow(void)
+{
+	WNDCLASS cls;
+	HWND hwnd;
+
+	ZeroMemory(&cls, sizeof (WNDCLASS));
+	cls.lpszClassName = L"mainwin";
+	cls.lpfnWndProc = wndproc;
+	cls.hInstance = hInstance;
+	cls.hIcon = hDefaultIcon;
+	cls.hCursor = hDefaultCursor;
+	cls.hbrBackground = (HBRUSH) (COLOR_BTNFACE + 1);
+	if (RegisterClass(&cls) == 0)
+		panic("error registering window class");
+	hwnd = CreateWindowEx(0,
+		L"mainwin", L"Main Window",
+		WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		NULL, NULL, hInstance, NULL);
+	if (hwnd == NULL)
+		panic("opening main window failed");
+	return hwnd;
+}
+
+void buildUI(HWND mainwin)
+{
+	// ...
+}
+
+void firstShowWindow(HWND hwnd);
+
 int main(int argc, char *argv[])
 {
+	HWND mainwin;
+	MSG msg;
+
 	init(argc, argv);
 
-	SetLastError(4);
-	panic("last error test");
+	mainwin = makeMainWindow();
+	buildUI(mainwin);
+	firstShowWindow(mainwin);
+
+	while (GetMessage(&msg, NULL, 0, 0) > 0) {		// TODO check for errors
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
 	return 0;
+}
+
+DWORD iccFlags =
+//	ICC_ANIMATE_CLASS |			// animation control
+//	ICC_BAR_CLASSES |				// toolbar, statusbar, trackbar, tooltip
+//	ICC_COOL_CLASSES |			// rebar
+//	ICC_DATE_CLASSES |			// date and time picker
+//	ICC_HOTKEY_CLASS |			// hot key
+//	ICC_INTERNET_CLASSES |		// IP address entry field
+//	ICC_LINK_CLASS |				// hyperlink
+//	ICC_LISTVIEW_CLASSES |			// list-view, header
+//	ICC_NATIVEFNTCTL_CLASS |		// native font
+//	ICC_PAGESCROLLER_CLASS |		// pager
+//	ICC_PROGRESS_CLASS |			// progress bar
+//	ICC_STANDARD_CLASSES |		// "one of the intrinsic User32 control classes"
+//	ICC_TAB_CLASSES |				// tab, tooltip
+//	ICC_TREEVIEW_CLASSES |		// tree-view, tooltip
+//	ICC_UPDOWN_CLASS |			// up-down
+//	ICC_USEREX_CLASSES |			// ComboBoxEx
+//	ICC_WIN95_CLASSES |			// some of the above
+	0;
+
+void initwin(void)
+{
+	INITCOMMONCONTROLSEX icc;
+
+	hInstance = GetModuleHandle(NULL);
+	if (hInstance == NULL)
+		panic("error getting hInstance");
+	hDefaultIcon = LoadIcon(NULL, MAKEINTRESOURCE(IDI_APPLICATION));
+	if (hDefaultIcon == NULL)
+		panic("error getting default window class icon");
+	hDefaultCursor = LoadCursor(NULL, MAKEINTRESOURCE(IDC_ARROW));
+	if (hDefaultCursor = NULL)
+		panic("error getting default window cursor");
+	icc.dwSize = sizeof (INITCOMMONCONTROLSEX);
+	icc.dwICC = iccFlags;
+	if (InitCommonControlsEx(&icc) == FALSE)
+		panic("error initializing Common Controls");
 }
 
 void init(int argc, char *argv[])
@@ -77,9 +174,11 @@ void init(int argc, char *argv[])
 		}
 	}
 
-	if (parseArgs(argc, argv) == TRUE)
-		return;
-	// otherwise fall through
+	if (parseArgs(argc, argv) != TRUE)
+		goto usage;
+
+	initwin();
+	return;
 
 usage:
 	fprintf(stderr, "usage: %s [options]", argv[0]);
@@ -125,4 +224,19 @@ void panic(char *fmt, ...)
 	fprintf(stderr, "%s\n", fullmsg);
 	va_end(arg);
 	exit(1);
+}
+
+void firstShowWindow(HWND hwnd)
+{
+	// we need to get nCmdShow
+	int nCmdShow;
+	STARTUPINFO si;
+
+	nCmdShow = SW_SHOWDEFAULT;
+	GetStartupInfo(&si);
+	if ((si.dwFlags & STARTF_USESHOWWINDOW) != 0)
+		nCmdShow = si.wShowWindow;
+	ShowWindow(hwnd, nCmdShow);
+	if (UpdateWindow(hwnd) == 0)
+		panic("UpdateWindow(hwnd) failed in first show");
 }
