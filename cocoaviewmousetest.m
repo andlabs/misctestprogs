@@ -46,17 +46,48 @@ BOOL parseArgs(int argc, char *argv[])
 
 void printEvent(char *what, NSEvent *e, NSPoint pos)
 {
-	printf("%s loc:%s button:%ld clickCount:%ld pressedButtons:0x%lX xxx\n", what,
+	printf("%s loc:%s button:%ld", what,
 		fromNSString(NSStringFromPoint(pos)),
-		(long) [e buttonNumber],
-		(long) [e clickCount],
+		(long) [e buttonNumber]);
+	if ([e type] != NSMouseEntered && [e type] != NSMouseExited)		// otherwise will throw an exception
+		printf(" clickCount:%ld",
+			(long) [e clickCount]);
+	printf(" pressedButtons:0x%lX\n",
 		(unsigned long) [NSEvent pressedMouseButtons]);
 }
+
+NSTrackingArea *trackingArea;
 
 @interface testView : NSView @end
 @implementation testView
 - (BOOL)isFlipped { return YES; }
 - (BOOL)acceptsFirstResponder { return YES; }
+
+- (id)initWithFrame:(NSRect)r
+{
+	self = [super initWithFrame:r];
+	if (self)
+		[self retrack];
+	return self;
+}
+
+- (void)updateTrackingAreas
+{
+	printf("updating tracking areas\n");
+	[self removeTrackingArea:trackingArea];
+	[trackingArea release];
+	[self retrack];
+}
+
+- (void)retrack
+{
+	trackingArea = [[NSTrackingArea alloc]
+		initWithRect:[self bounds]		// use bounds for correct results
+		options:(NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways | NSTrackingEnabledDuringMouseDrag)
+		owner:self
+		userInfo:nil];
+	[self addTrackingArea:trackingArea];
+}
 
 - (void)drawRect:(NSRect)r
 {
@@ -74,6 +105,9 @@ E(rightMouseUp)
 E(otherMouseDown)
 E(otherMouseDragged)
 E(otherMouseUp)
+E(mouseMoved)
+E(mouseEntered)
+E(mouseExited)
 @end
 
 void buildUI(NSWindow *mainwin)
