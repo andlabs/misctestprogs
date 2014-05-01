@@ -1,4 +1,5 @@
 // scratch Windows program by pietro gagliardi 17 april 2014
+// fixed typos and added toWideString() 1 may 2014
 // borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014 and 11-12 april 2014
 #define _UNICODE
 #define UNICODE
@@ -47,7 +48,7 @@ BOOL parseArgs(int argc, char *argv[])
 LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	switch (msg) {
-	case  WM_CLOSE:
+	case WM_CLOSE:
 		PostQuitMessage(0);
 		return 0;
 	default:
@@ -259,4 +260,29 @@ void firstShowWindow(HWND hwnd)
 	ShowWindow(hwnd, nCmdShow);
 	if (UpdateWindow(hwnd) == 0)
 		panic("UpdateWindow(hwnd) failed in first show");
+}
+
+TCHAR *toWideString(char *what)
+{
+	TCHAR *buf;
+	int n;
+	size_t len;
+
+	len = strlen(what);
+	if (len == 0)
+		buf = malloc(sizeof (TCHAR));
+	else {
+		n = MultiByteToWideChar(CP_UTF8, 0, what, len, NULL, 0);
+		if (n == 0)
+			panic("error getting number of bytes to convert \"%s\" to UTF-16", what);
+		buf = (TCHAR *) malloc((n + 1) * sizeof (TCHAR));
+	}
+	if (buf == NULL)
+		panic("error allocating memory for UTF-16 version of \"%s\"", what);
+	if (len == 0)
+		buf[0] = L'\0';
+	else
+		if (MultiByteToWideChar(CP_UTF8, 0, what, len, buf, (int) n) == 0)
+			panic("erorr converting \"%s\" to UTF-16", what);
+	return buf;
 }
