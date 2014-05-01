@@ -32,6 +32,7 @@ HCURSOR hDefaultCursor;
 HFONT controlfont;
 
 void panic(char *fmt, ...);
+TCHAR *toWideString(char *what);
 
 void init(int argc, char *argv[]);
 
