@@ -270,20 +270,22 @@ TCHAR *toWideString(char *what)
 	size_t len;
 
 	len = strlen(what);
-	if (len == 0)
-		buf = malloc(sizeof (TCHAR));
-	else {
-		n = MultiByteToWideChar(CP_UTF8, 0, what, len, NULL, 0);
+	if (len == 0) {
+		buf = (TCHAR *) malloc(sizeof (TCHAR));
+		if (buf == NULL)
+			goto mallocfail;
+		buf[0] = L'\0';
+	} else {
+		n = MultiByteToWideChar(CP_UTF8, 0, what, -1, NULL, 0);
 		if (n == 0)
 			panic("error getting number of bytes to convert \"%s\" to UTF-16", what);
 		buf = (TCHAR *) malloc((n + 1) * sizeof (TCHAR));
-	}
-	if (buf == NULL)
-		panic("error allocating memory for UTF-16 version of \"%s\"", what);
-	if (len == 0)
-		buf[0] = L'\0';
-	else
-		if (MultiByteToWideChar(CP_UTF8, 0, what, len, buf, (int) n) == 0)
+		if (buf == NULL)
+			goto mallocfail;
+		if (MultiByteToWideChar(CP_UTF8, 0, what, -1, buf, n) == 0)
 			panic("erorr converting \"%s\" to UTF-16", what);
+	}
 	return buf;
+mallocfail:
+	panic("error allocating memory for UTF-16 version of \"%s\"", what);
 }
