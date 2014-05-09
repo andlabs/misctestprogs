@@ -84,6 +84,8 @@ HWND makeMainWindow(void)
 	return hwnd;
 }
 
+#include "comctl6.h"
+
 void buildUI(HWND mainwin)
 {
 #define CSTYLE (WS_CHILD | WS_VISIBLE)
@@ -91,23 +93,16 @@ void buildUI(HWND mainwin)
 #define SETFONT(hwnd) SendMessage(hwnd, WM_SETFONT, (WPARAM) controlfont, (LPARAM) TRUE);
 	HWND current;
 
+	if (loadcomctl() == FALSE)
+		panic("error enabling comctl5");
 #define MKC(c,l,s,x,y,for) current = CreateWindowEx(CXSTYLE, c, l, s|CSTYLE, x, y, 100, 30, mainwin, NULL, hInstance, NULL); if(current == NULL)panic("error making " for); SETFONT(current)
 	MKC(L"static", L"without comctl6", SS_LEFTNOWORDWRAP|SS_NOPREFIX, 20, 20, "label without comctl6");
 	MKC(L"button", L"Button", 0, 20, 60, "button without comctl");
 
-	extern BOOL comctl6Enable(void), comctl6Disable(void);
-
-	if (comctl6Enable() == FALSE)
+	if (switchcomctl6() == FALSE)
 		panic("error enabling comctl6");
-	{INITCOMMONCONTROLSEX icc;
-	icc.dwSize = sizeof (INITCOMMONCONTROLSEX);
-	icc.dwICC = 0;
-	if (InitCommonControlsEx(&icc) == FALSE)
-		panic("error initializing Common Controls");}
 	MKC(L"static", L"with comctl6", SS_LEFTNOWORDWRAP|SS_NOPREFIX, 150, 20, "label with comctl6");
 	MKC(L"button", L"Button", 0, 150, 60, "button with comctl");
-	if (comctl6Disable() == FALSE)
-		panic("error disabling comctl6");
 }
 
 void firstShowWindow(HWND hwnd);
@@ -173,8 +168,8 @@ void initwin(void)
 		panic("error getting default window cursor");
 	icc.dwSize = sizeof (INITCOMMONCONTROLSEX);
 	icc.dwICC = iccFlags;
-	if (InitCommonControlsEx(&icc) == FALSE)
-		panic("error initializing Common Controls");
+//	if (InitCommonControlsEx(&icc) == FALSE)
+//		panic("error initializing Common Controls");
 	ncm.cbSize = sizeof (NONCLIENTMETRICS);
 	if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS,
 		sizeof (NONCLIENTMETRICS), &ncm, 0) == 0)
