@@ -1,4 +1,4 @@
-// 8 may 2014
+// 8-9 may 2014
 #define _UNICODE
 #define UNICODE
 #define STRICT
@@ -9,7 +9,7 @@ static const char *manifest = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalo
 static ACTCTX context;
 static HANDLE contextHandle;
 static ULONG_PTR contextCookie;
-static const WCHAR manifestfile[MAX_PATH + 1] = { L'\0' };
+static WCHAR manifestfile[MAX_PATH + 1] = { L'\0' };
 
 static BOOL writeManifest(void)
 {
