@@ -35,6 +35,14 @@ typedef int TASKDIALOG_COMMON_BUTTON_FLAGS;		// there's even a friendly comment 
 typedef struct TASKDIALOGCONFIG TASKDIALOGCONFIG;
 #endif
 
+// more devious is MSVC, which won't allow dllimport specifications in a function definition; if we remove those, however, it complains about inconsistent DLL linkage
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4273)
+#undef WINCOMMCTRLAPI
+#define WINCOMMCTRLAPI
+#endif
+
 static const char *manifest = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\" manifestVersion=\"1.0\">\n<assemblyIdentity\n    version=\"1.0.0.0\"\n    processorArchitecture=\"*\"\n    name=\"CompanyName.ProductName.YourApplication\"\n    type=\"win32\"\n/>\n<description>Your application description here.</description>\n<dependency>\n    <dependentAssembly>\n        <assemblyIdentity\n            type=\"win32\"\n            name=\"Microsoft.Windows.Common-Controls\"\n            version=\"6.0.0.0\"\n            processorArchitecture=\"*\"\n            publicKeyToken=\"6595b64144ccf1df\"\n            language=\"*\"\n        />\n    </dependentAssembly>\n</dependency>\n</assembly>\n\n";		// not WCHAR!
 static ACTCTX context;
 static HANDLE contextHandle;
@@ -329,7 +337,7 @@ static char *comctlFuncNames[nIndices] = {
 
 static HMODULE comctl5 = NULL, comctl6 = NULL;
 
-static void loadAll(HANDLE h, int n)
+static void loadAll(HMODULE h, int n)
 {
 	int i;
 
@@ -670,3 +678,8 @@ UninitializeFlatSB HRESULT HWND h
 _TrackMouseEvent BOOL LPTRACKMOUSEEVENT lpEventTrack
 
 */
+
+// and clean the above
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
