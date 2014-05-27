@@ -42,6 +42,7 @@ GtkWidget *buildUI(void)
 #define EXPAND(widget, h, v) gtk_widget_set_hexpand((GtkWidget *) (widget), (h)); gtk_widget_set_vexpand((GtkWidget *) (widget), (v))
 #define ALIGN(widget, h, v) gtk_widget_set_halign((GtkWidget *) (widget), GTK_ALIGN_ ## h); gtk_widget_set_valign((GtkWidget *) (widget), GTK_ALIGN_ ## v)
 #define ADD(widget, side, xspan, yspan) gtk_grid_attach_next_to(grid, (GtkWidget *) widget, prev, GTK_POS_ ## side, (xspan), (yspan)); prev = (GtkWidget *) (widget)
+#define ADDNEXTTO(widget, nextto, side, xspan, yspan) gtk_grid_attach_next_to(grid, (GtkWidget *) widget, (GtkWidget *) (nextto), GTK_POS_ ## side, (xspan), (yspan))
 	// call EXPAND(), ALIGN(FILL/START/END/CENTER), and ADD(LEFT/TOP/RIGHT/BOTTOM) for each widget
 
 	GtkButton *b = (GtkButton *) gtk_button_new_with_label("abc");
@@ -51,8 +52,13 @@ GtkWidget *buildUI(void)
 
 	GtkButton *b2 = (GtkButton *) gtk_button_new_with_label("def");
 	EXPAND(b2, TRUE, TRUE);
-	ALIGN(b2, FILL, CENTER);
-	ADD(b2, BOTTOM, 1, 1);
+	ALIGN(b2, CENTER, CENTER);
+	ADD(b2, BOTTOM, 2, 1);
+
+	GtkButton *b3 = (GtkButton *) gtk_button_new_with_label("ghi");
+	EXPAND(b3, TRUE, TRUE);
+	ALIGN(b3, FILL, FILL);
+	ADDNEXTTO(b3, b, RIGHT, 1, 1);
 
 	return (GtkWidget *) grid;
 }
