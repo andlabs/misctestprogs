@@ -1,5 +1,4 @@
 // scratch GTK+ program by pietro gagliardi 16-17 april 2014
-// updated 27 may 2014
 // uses code from 31 march 2014 and 15 april 2014
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,10 +42,17 @@ GtkWidget *buildUI(void)
 #define EXPAND(widget, h, v) gtk_widget_set_hexpand((GtkWidget *) (widget), (h)); gtk_widget_set_vexpand((GtkWidget *) (widget), (v))
 #define ALIGN(widget, h, v) gtk_widget_set_halign((GtkWidget *) (widget), GTK_ALIGN_ ## h); gtk_widget_set_valign((GtkWidget *) (widget), GTK_ALIGN_ ## v)
 #define ADD(widget, side, xspan, yspan) gtk_grid_attach_next_to(grid, (GtkWidget *) widget, prev, GTK_POS_ ## side, (xspan), (yspan)); prev = (GtkWidget *) (widget)
-#define ADDNEXTTO(widget, nextto, side, xspan, yspan) gtk_grid_attach_next_to(grid, (GtkWidget *) widget, (GtkWidget *) (nextto), GTK_POS_ ## side, (xspan), (yspan))
-	// call EXPAND(), ALIGN(FILL/START/END/CENTER), and ADD(LEFT/TOP/RIGHT/BOTTOM)/ADDNEXTTO() for each widget
+	// call EXPAND(), ALIGN(FILL/START/END/CENTER), and ADD(LEFT/TOP/RIGHT/BOTTOM) for each widget
 
-	// add widgets here
+	GtkButton *b = (GtkButton *) gtk_button_new_with_label("abc");
+	EXPAND(b, TRUE, TRUE);
+	ALIGN(b, FILL, FILL);
+	ADD(b, TOP, 1, 1);
+
+	GtkButton *b2 = (GtkButton *) gtk_button_new_with_label("def");
+	EXPAND(b2, TRUE, TRUE);
+	ALIGN(b2, FILL, CENTER);
+	ADD(b2, BOTTOM, 1, 1);
 
 	return (GtkWidget *) grid;
 }
