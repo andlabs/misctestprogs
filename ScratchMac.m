@@ -1,141 +1,196 @@
-// scratch Mac OS X program by pietro gagliardi 24 april 2014
-// borrows code from the other scratch programs might as well stop tracking those dates :/
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <getopt.h>
-#include <objc/message.h>
-#include <objc/objc.h>
-#include <objc/runtime.h>
-#include <Foundation/Foundation.h>
-#include <AppKit/AppKit.h>
+// 28 may 2014
+// borrows some things from the blog GTK+ scratch program (see that + its history)
+#import <stdio.h>
+#import <stdlib.h>
+#import <getopt.h>
+#import <Cocoa/Cocoa.h>
 
-// cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too)
-#define flagBool(name, help, short) { name, no_argument, (int *) help, short }
-#define flagString(name, help, short) { name, required_argument, (int *) help, short }
-static struct option flags[] = {
-	// place other options here
-	flagBool("help", "show help and quit", 'h'),
-	{ 0, 0, 0, 0 },
-};
+// string helpers
+#define toNSString(x) ([NSString stringWithUTF8String:(x)])
+#define fromNSString(x) ([(x) UTF8String])
 
-#define toNSString(s) [NSString stringWithUTF8String:(s)]
-#define fromNSString(s) [(s) UTF8String]
-
-@interface _appDelegate : NSObject @end
-
-@implementation _appDelegate
-// app delegate methods here
-@end
-
-_appDelegate *appDelegate;
-
-void init(int argc, char *argv[]);
-
-char *args = "";		// other command-line arguments here, if any
-
-BOOL parseArgs(int argc, char *argv[])
+// command line flags go here
+// the array format is @[NSString *name, NSString *help, NSValue *arg]
+// name should not have a leading - or --
+// arg should be @YES or @NO to determine if an argument is taken
+NSArray *flagspec(void)
 {
-	// parse arguments here, if any; use optind
+	return @[
+		// args here
+		// no need for -help
+	];
+}
+
+// after init(), this will contain all the above keys with NSValue values
+// - if the flag takes no argument, the value is either @YES or @NO
+// - if the flag takes an argument, the value will be a pointer or NULL if not set
+NSMutableDictionary *flags;
+
+// after init(), this will contain the rest of the arguments
+NSMutableArray *otherArgs;
+
+// this is for the usage text
+// name other command-line arguments here, if any
+// for example, "[files...]"
+char *args = "";
+
+BOOL parseArgs()
+{
+	// parse arguments here, if any, from otherArgs
 	// return YES if parsed successfully; NO otherwise
 	// (returning NO will show usage and quit)
 	return YES;
 }
 
-void buildUI(NSWindow *mainwin)
-{
-#define ADD(c) [[mainwin contentView] addSubview:(c)];
-#define DELEGATE(c) [(c) setDelegate:appDelegate];
-#define TARGACT(c, a) [(c) setTarget:appDelegate]; [(c) setAction:@selector(a)];
-#define SETFONT(c) [(c) setFont:[NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSRegularControlSize]]];
-	// build UI here; use ADD(), DELEGATE(), TARGACT(), and SETFONT()
-}
+@interface AppDelegate : NSObject
+@end
 
-@implementation _appDelegate (MainCategory)
+AppDelegate *appDelegate;
+NSWindow *mainwin;
 
-- (void)applicationDidFinishLaunching:(NSNotification *)n
-{
-	NSWindow *mainwin;
+@implementation AppDelegate
 
-	mainwin = [[NSWindow alloc]
-		initWithContentRect:NSMakeRect(50, 50, 400, 400)
-		styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
-		backing:NSBackingStoreBuffered
-		defer:YES];		// defer creation until shown
-	[mainwin setTitle:@"Main Window"];
-	buildUI(mainwin);
-	[mainwin makeKeyAndOrderFront:self];
-}
+// implementation methods here
 
 @end
+
+#define sysFontSize(x) [NSFont systemFontSizeForControlSize:(NS ## x ##ControlSize)]
+
+void buildUI(void)
+{
+#define SETFONT(c, size) [(c) setFont:[NSFont systemFontOfSize:sysFontSize(size)]]
+#define RESIZE(c, mask) [(c) setAutoresizingMask:(mask)]
+#define ADD(c) [[mainwin contentView] addSubview:(c)]
+	// use SETFONT(Regular/Small/Mini), RESIZE() and ADD()
+	// the mask argument to RESIZE() is one of the NSView resizing masks
+
+	// add widgets here
+}
+
+void init(int, char *[]);
 
 int main(int argc, char *argv[])
 {
 	init(argc, argv);
-
-	appDelegate = [_appDelegate new];
 	[NSApplication sharedApplication];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-	[NSApp activateIgnoringOtherApps:YES];		// TODO YES (Russ Cox's devdraw from plan9ports) or NO (Finder)?
+	if ([NSApp setActivationPolicy:NSApplicationActivationPolicyRegular] != YES) {
+		fprintf(stderr, "error activating Cocoa application\n");
+		return 1;
+	}
+	[NSApp activateIgnoringOtherApps:TRUE];
+	appDelegate = [AppDelegate new];
 	[NSApp setDelegate:appDelegate];
 	[NSApp run];
 	return 0;
 }
 
+@implementation AppDelegate (usuallyTheSame)
+
+- (void)applicationDidFinishLaunching:(NSNotification *)note
+{
+	mainwin = [[NSWindow alloc]
+		initWithContentRect:NSMakeRect(300, 300, 320, 240)
+		styleMask:(NSTitledWindowMask | NSClosableWindowMask |
+			NSMiniaturizableWindowMask | NSResizableWindowMask)
+		backing:NSBackingStoreBuffered
+		defer:YES];
+	[mainwin setTitle:@"Main Window"];
+	[[mainwin contentView] setAutoresizesSubviews:YES];
+	buildUI();
+	[mainwin makeKeyAndOrderFront:self];
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app
+{
+	return YES;
+}
+
+@end
+
 void init(int argc, char *argv[])
 {
-	int usageExit = 1;
-	char *opthelp[512];		// more than enough
-	int i;
+	struct option *sopts;
+	size_t soptssize;
+	NSUInteger i;
+	NSArray *fspec;
+	int c;
+	int soptsindex;
+	int usageret = 1;
 
-	for (i = 0; flags[i].name != 0; i++) {
-		opthelp[i] = (char *) flags[i].flag;
-		flags[i].flag = NULL;
+	fspec = flagspec();
+	soptssize = ([fspec count] + 2) * sizeof (struct option);
+	sopts = (struct option *) malloc(soptssize);
+	if (sopts == NULL) {
+		fprintf(stderr, "memory exhausted processing command-line arguments\n");
+		exit(1);
 	}
+	memset(sopts, 0, soptssize);
+	flags = [NSMutableDictionary new];
+	for (i = 0; i < [fspec count]; i++) {
+		NSArray *flag;
+
+		flag = fspec[i];
+		sopts[i].name = fromNSString(flag[0]);
+		sopts[i].has_arg = no_argument;
+		flags[flag[0]] = @NO;
+		if ([flag[2] boolValue] == YES) {
+			sopts[i].has_arg = required_argument;
+			flags[flag[0]] =
+				[NSValue valueWithPointer:NULL];
+		}
+		// leave sopts[i].flag as NULL and sopts[i].val as 0
+	}
+	sopts[i].name = "help";
+	sopts[i].has_arg = no_argument;
+	sopts[i].val = 'h';		// leave sopts[i].flag as NULL
 
 	for (;;) {
-		int c;
-
-		c = getopt_long_only(argc, argv, "", flags, NULL);
-		if (c == -1)
+		c = getopt_long_only(argc, argv, "", sopts, &soptsindex);
+		if (c == -1)		// done
 			break;
 		switch (c) {
-		case 'h':		// -help
-			usageExit = 0;
+		case 0:			// one of our options
+			if (sopts[soptsindex].has_arg == no_argument)
+				flags[fspec[soptsindex][0]] = @YES;
+			else
+				flags[fspec[soptsindex][0]] =
+					[NSValue valueWithPointer:optarg];
+			continue;
+		case 'h':			// -help
+			usageret = 0;
 			goto usage;
-		case '?':
-			// getopt_long_only() should have printed something since we did not set opterr to 0
+		case '?':			// unknown
+			// getopt_long_only() will print the error
 			goto usage;
-		default:
-			fprintf(stderr, "internal error: getopt_long_only() returned %d\n", c);
-			exit(1);
 		}
+		fprintf(stderr, "internal error: getopt_long_only() returned %d\n", c);
+		exit(1);
 	}
 
-	if (parseArgs(argc, argv) == YES)
-		return;
-	// otherwise fall through
+	otherArgs = [NSMutableArray new];
+	for (i = (NSUInteger) optind; i < (NSUInteger) argc; i++)
+		[otherArgs addObject:toNSString(argv[i])];
+	if (!parseArgs())
+		goto usage;
+
+	return;
 
 usage:
 	fprintf(stderr, "usage: %s [options]", argv[0]);
 	if (args != NULL && *args != '\0')
 		fprintf(stderr, " %s", args);
 	fprintf(stderr, "\n");
-	for (i = 0; flags[i].name != 0; i++)
-		fprintf(stderr, "\t-%s%s - %s\n",
-			flags[i].name,
-			(flags[i].has_arg == required_argument) ? " string" : "",
-			opthelp[i]);
-	exit(usageExit);
+	for (i = 0; i < [fspec count]; i++) {
+		NSArray *flag;
+		char *opt;
+
+		flag = fspec[i];
+		opt = "";
+		if ([flag[2] boolValue] == YES)
+			opt = " arg";
+		fprintf(stderr, "\t-%s%s: %s\n",
+			fromNSString(flag[0]), opt,
+			fromNSString(flag[1]));
+	}
+	exit(usageret);
 }
-
-@implementation _appDelegate (WindowShouldCloseCategory)
-
-// this ensures that when we close all the windows, the program closes
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)a
-{
-	return YES;
-}
-
-@end
