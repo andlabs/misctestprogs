@@ -21,7 +21,7 @@ NSArray *flagspec(void)
 	];
 }
 
-// after init(), this will contain all the above keys with NSValue values
+// after init(), this will contain all the above flag names as keys with NSValue values
 // - if the flag takes no argument, the value is either @YES or @NO
 // - if the flag takes an argument, the value will be a pointer or NULL if not set
 NSMutableDictionary *flags;
@@ -54,7 +54,7 @@ NSWindow *mainwin;
 
 @end
 
-#define sysFontSize(x) [NSFont systemFontSizeForControlSize:(NS ## x ##ControlSize)]
+#define sysFontSize(x) [NSFont systemFontSizeForControlSize:(NS ## x ## ControlSize)]
 
 void buildUI(void)
 {
