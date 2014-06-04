@@ -67,33 +67,49 @@ void printfont(HDC dc, LOGFONT clf, TEXTMETRIC tm)
 	printf("%d", h);
 }
 
-typedef void (*dlgfn)(int, int, double, double, int *, int *);
+typedef void (*dlgfn)(int, int, va_list, int *, int *);
 
-void printdlgunits(char *what, HDC dc, TEXTMETRIC cltm, dlgfn f, double arg1, double arg2)
+void printdlgunits(char *what, HDC dc, TEXTMETRIC cltm, dlgfn f, ...)
 {
 	int res1, res2;
+	va_list arg;
 
+// button
 #define BUTTON_SIZE_X 50
 #define BUTTON_SIZE_Y 14
 	printf(what);
 	printfont(dc, clf, cltm);
-	(*f)(BUTTON_SIZE_X, BUTTON_SIZE_Y, arg1, arg2, &res1, &res2);
-	printf(" | baseX %g baseY %g | button %d x %d -> %d x %d\n",
-		arg1, arg2,
+	printf(" | ");
+	va_start(arg, f);
+	(*f)(BUTTON_SIZE_X, BUTTON_SIZE_Y, arg, &res1, &res2);
+	va_end(arg);
+	printf(" | button %d x %d -> %d x %d\n",
 		BUTTON_SIZE_X, BUTTON_SIZE_Y,
 		res1, res2);
 }
 
-void dlg_nosys(int w, int h, double baseX, double baseY, int *resX, int *resY)
+void dlg_nosys(int w, int h, va_list arg, int *resX, int *resY)
 {
+	int baseX, baseY;
+
+	baseX = va_arg(arg, int);
+	baseY = va_arg(arg, int);
 	*resX = MulDiv(w, baseX, 4);
 	*resY = MulDiv(h, baseY, 8);
+	printf("baseX %d baseY %d", baseX, baseY);
 }
 
-void dlg_sys(int w, int h, double baseX, double baseY, int *resX, int *resY)
+void dlg_sys(int w, int h, va_list arg, int *resX, int *resY)
 {
-	*resX = 2 * w * baseX;
-	*resY = 2 * h * baseY;
+	int cX, cY, sysX, sysY;
+
+	cX = va_arg(arg, int);
+	sysX = va_arg(arg, int);
+	cY = va_arg(arg, int);
+	sysY = va_arg(arg, int);
+	*resX = 2 * w * (((double) (cX)) / ((double) (sysX)));
+	*resY = 2 * h * (((double) (cY)) / ((double) (sysY)));
+	printf("cX %d cY %d sysX %d sysY %d", cX, cY, sysX, sysY);
 }
 
 TEXTMETRIC getAverages(HDC dc, int *xGTEP32, int *xTM, int *y)
@@ -133,13 +149,12 @@ void paint(HDC dc)
 	printf("with system font: ");
 	printfont(dc, syslf, systm);
 	printf("\n");
-#define d(x,y) (((double)(x)) / ((double)(y)))
-	printdlgunits("GetTextExtentPoint32: ", dc, ctm, dlg_sys, d(cXG, sysXG), d(cY, sysY));
-	printdlgunits("tm.tmAveCharWidth:    ", dc, ctm, dlg_sys, d(cXT, sysXT), d(cY, sysY));
-#undef d
+	printdlgunits("GetTextExtentPoint32: ", dc, ctm, dlg_sys, cXG, sysXG, cY, sysY);
+	printdlgunits("tm.tmAveCharWidth:    ", dc, ctm, dlg_sys, cXT, sysXT, cY, sysY);
 
 	if (SelectObject(dc, prev) == NULL)
 		panic("error returning font to normal");
+	exit(0);		// no need to do anything special anymore
 }
 
 LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
