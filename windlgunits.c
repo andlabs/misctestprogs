@@ -49,7 +49,7 @@ BOOL parseArgs(int argc, char *argv[])
 
 LOGFONT clf;
 
-void printfont(HDC dc, LOGFONT clf)
+void printfont(HDC dc, LOGFONT clf, TEXTMETRIC tm)
 {
 	LONG h;
 
@@ -60,7 +60,8 @@ void printfont(HDC dc, LOGFONT clf)
 		h = -h;
 		h = MulDiv(h, 72, GetDeviceCaps(dc, LOGPIXELSY));
 	} else if (h > 0) {
-		// TODO
+		// solve the first formula in http://support.microsoft.com/kb/74299 for point size
+		h = ((h - tm.tmInternalLeading) * 72) / GetDeviceCaps(dc, LOGPIXELSY);
 	} else
 		panic("not sure how to convert %d from height to points", h);
 	printf("%d", h);
@@ -68,14 +69,14 @@ void printfont(HDC dc, LOGFONT clf)
 
 typedef void (*dlgfn)(int, int, double, double, int *, int *);
 
-void printdlgunits(char *what, HDC dc, dlgfn f, double arg1, double arg2)
+void printdlgunits(char *what, HDC dc, TEXTMETRIC cltm, dlgfn f, double arg1, double arg2)
 {
 	int res1, res2;
 
 #define BUTTON_SIZE_X 50
 #define BUTTON_SIZE_Y 14
 	printf(what);
-	printfont(dc, clf);
+	printfont(dc, clf, cltm);
 	(*f)(BUTTON_SIZE_X, BUTTON_SIZE_Y, arg1, arg2, &res1, &res2);
 	printf(" | baseX %g baseY %g | button %d x %d -> %d x %d\n",
 		arg1, arg2,
@@ -95,7 +96,7 @@ void dlg_sys(int w, int h, double baseX, double baseY, int *resX, int *resY)
 	*resY = 2 * h * baseY;
 }
 
-void getAverages(HDC dc, int *xGTEP32, int *xTM, int *y)
+TEXTMETRIC getAverages(HDC dc, int *xGTEP32, int *xTM, int *y)
 {
 	SIZE extents;
 	TEXTMETRIC tm;
@@ -108,6 +109,7 @@ void getAverages(HDC dc, int *xGTEP32, int *xTM, int *y)
 		panic("error calling GetTextMetrics()");
 	*xTM = tm.tmAveCharWidth;
 	*y = tm.tmHeight;
+	return tm;
 }
 
 void paint(HDC dc)
@@ -116,23 +118,24 @@ void paint(HDC dc)
 	int cXG, cXT, cY;
 	int sysXG, sysXT, sysY;
 	LOGFONT syslf;
+	TEXTMETRIC ctm, systm;
 
-	getAverages(dc, &sysXG, &sysXT, &sysY);
+	systm = getAverages(dc, &sysXG, &sysXT, &sysY);
 	prev = SelectObject(dc, controlfont);
 	if (prev == NULL)
 		panic("error calling SelectObject()");
 	if (GetObject(prev, sizeof (LOGFONT), &syslf) == 0)
 		panic("error getting LOGFONT for the System font");
-	getAverages(dc, &cXG, &cXT, &cY);
+	ctm = getAverages(dc, &cXG, &cXT, &cY);
 
-	printdlgunits("GetTextExtentPoint32: ", dc, dlg_nosys, cXG, cY);
-	printdlgunits("tm.tmAveCharWidth:    ", dc, dlg_nosys, cXT, cY);
+	printdlgunits("GetTextExtentPoint32: ", dc, ctm, dlg_nosys, cXG, cY);
+	printdlgunits("tm.tmAveCharWidth:    ", dc, ctm, dlg_nosys, cXT, cY);
 	printf("with system font: ");
-	printfont(dc, syslf);
+	printfont(dc, syslf, systm);
 	printf("\n");
 #define d(x,y) (((double)(x)) / ((double)(y)))
-	printdlgunits("GetTextExtentPoint32: ", dc, dlg_sys, d(cXG, sysXG), d(cY, sysY));
-	printdlgunits("tm.tmAveCharWidth:    ", dc, dlg_sys, d(cXT, sysXT), d(cY, sysY));
+	printdlgunits("GetTextExtentPoint32: ", dc, ctm, dlg_sys, d(cXG, sysXG), d(cY, sysY));
+	printdlgunits("tm.tmAveCharWidth:    ", dc, ctm, dlg_sys, d(cXT, sysXT), d(cY, sysY));
 #undef d
 
 	if (SelectObject(dc, prev) == NULL)
