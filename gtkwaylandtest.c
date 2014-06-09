@@ -1,4 +1,4 @@
-// 8 june 2014
+// 8-9 june 2014
 // scratch GTK+ program by pietro gagliardi 16-17 april 2014
 // updated 27 may 2014
 // uses code from 31 march 2014 and 15 april 2014
@@ -11,6 +11,8 @@
 #define GDK_VERSION_MAX_ALLOWED GDK_VERSION_3_4
 #include <gtk/gtk.h>
 
+gboolean layoutSize = FALSE;
+
 // flag variables here; use types gbooleean, gchar *, gint, gdouble
 
 #define flagBool(name, help) { #name, 0, 0, G_OPTION_ARG_NONE, &name, help, NULL }
@@ -18,7 +20,7 @@
 #define flagInt(name, help) { #name, 0, 0, G_OPTION_ARG_INT, &name, help, NULL }
 #define flagDouble(name, help) { #name, 0, 0, G_OPTION_ARG_DOUBLE, &name, help, NULL }
 static GOptionEntry flags[] = {
-	// options here
+	flagBool(layoutSize, "use layout size instead of window size"),
 	{ NULL, 0, 0, 0, NULL, NULL, NULL },
 };
 
@@ -79,6 +81,10 @@ gboolean resize(GtkWidget *w, GdkEvent *event, gpointer data)
 
 #define SR(widget) gtk_widget_get_allocation((widget), &s); sw = s.width; sh = s.height
 	gtk_window_get_size(GTK_WINDOW(w), &width, &height);
+	if (layoutSize) {
+		width = gtk_widget_get_allocated_width(layout);
+		height = gtk_widget_get_allocated_height(layout);
+	}
 	SR(top);
 #define MOVE gtk_layout_move
 	MOVE(l, top, (width - sw) / 2, 0);
