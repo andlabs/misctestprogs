@@ -12,6 +12,8 @@
 #include <gtk/gtk.h>
 
 gboolean layoutSize = FALSE;
+gboolean connectAfter = FALSE;
+gboolean sizeAllocate = FALSE;
 
 // flag variables here; use types gbooleean, gchar *, gint, gdouble
 
@@ -21,6 +23,8 @@ gboolean layoutSize = FALSE;
 #define flagDouble(name, help) { #name, 0, 0, G_OPTION_ARG_DOUBLE, &name, help, NULL }
 static GOptionEntry flags[] = {
 	flagBool(layoutSize, "use layout size instead of window size"),
+	flagBool(connectAfter, "connect configure-event with g_signal_connect_after()"),
+	flagBool(sizeAllocate, "connect size-allocate (overrides --connectAfter)"),
 	{ NULL, 0, 0, 0, NULL, NULL, NULL },
 };
 
@@ -72,19 +76,12 @@ GtkWidget *buildUI(void)
 	return (GtkWidget *) layout;
 }
 
-gboolean resize(GtkWidget *w, GdkEvent *event, gpointer data)
+void resize(GtkLayout *l, gint width, gint height)
 {
-	GtkLayout *l = (GtkLayout *) layout;
-	gint width, height;
 	gint sw, sh;
 	GtkAllocation s;
 
 #define SR(widget) gtk_widget_get_allocation((widget), &s); sw = s.width; sh = s.height
-	gtk_window_get_size(GTK_WINDOW(w), &width, &height);
-	if (layoutSize) {
-		width = gtk_widget_get_allocated_width(layout);
-		height = gtk_widget_get_allocated_height(layout);
-	}
 	SR(top);
 #define MOVE gtk_layout_move
 	MOVE(l, top, (width - sw) / 2, 0);
@@ -94,6 +91,27 @@ gboolean resize(GtkWidget *w, GdkEvent *event, gpointer data)
 	MOVE(l, bottom, (width - sw) / 2, height - sh);
 	SR(right);
 	MOVE(l, right, width - sw, (height - sh) / 2);
+}
+
+gboolean configure(GtkWidget *w, GdkEvent *event, gpointer data)
+{
+	GtkLayout *l = (GtkLayout *) layout;
+	gint width, height;
+
+	gtk_window_get_size(GTK_WINDOW(w), &width, &height);
+	if (layoutSize) {
+		width = gtk_widget_get_allocated_width(layout);
+		height = gtk_widget_get_allocated_height(layout);
+	}
+	resize(l, width, height);
+	return FALSE;
+}
+
+gboolean allocate(GtkWidget *w, GdkRectangle *rect, gpointer data)
+{
+	GtkLayout *l = (GtkLayout *) layout;
+
+	resize(l, rect->width, rect->height);
 	return FALSE;
 }
 
@@ -108,10 +126,17 @@ int main(int argc, char *argv[])
 	gtk_window_set_title(mainwin, "Main Window");
 	gtk_window_resize(mainwin, 320, 240);		// give it a useful initial size, rather than "as small as possible"
 	g_signal_connect(mainwin, "delete-event", gtk_main_quit, NULL);
-	g_signal_connect(mainwin, "configure-event", G_CALLBACK(resize), NULL);
 
 	layout = buildUI();
 	gtk_container_add((GtkContainer *) mainwin, layout);
+
+	if (sizeAllocate)
+		g_signal_connect(layout, "size-allocate", G_CALLBACK(allocate), NULL);
+	else if (connectAfter)
+		g_signal_connect_after(mainwin, "configure-event", G_CALLBACK(configure), NULL);
+	else
+		g_signal_connect(mainwin, "configure-event", G_CALLBACK(configure), NULL);
+
 	gtk_widget_show_all((GtkWidget *) mainwin);
 
 	gtk_main();
