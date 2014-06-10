@@ -107,12 +107,11 @@ gboolean configure(GtkWidget *w, GdkEvent *event, gpointer data)
 	return FALSE;
 }
 
-gboolean allocate(GtkWidget *w, GdkRectangle *rect, gpointer data)
+void allocate(GtkWidget *w, GdkRectangle *rect, gpointer data)
 {
 	GtkLayout *l = (GtkLayout *) layout;
 
 	resize(l, rect->width, rect->height);
-	return FALSE;
 }
 
 int main(int argc, char *argv[])
