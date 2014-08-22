@@ -70,15 +70,30 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+// the big magic
+// technically an undocumented function, but here's an Apple engineer publicly suggesting use of the function:
+// - http://lists.apple.com/archives/darwin-development/2002/Sep/msg00250.html
+// and here's a core OS module that uses it:
+// - http://www.opensource.apple.com/source/kext_tools/kext_tools-19.2/kextd_main.c
+extern void _CFRunLoopSetCurrent(CFRunLoopRef);
+
 @implementation AppDelegate (usuallyTheSame)
 
 - (void)threadMain:(id)unused
 {
 	NSLog(@"in");
+	_CFRunLoopSetCurrent(CFRunLoopGetMain());
 	[NSApplication sharedApplication];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:TRUE];
-	[NSApp setDelegate:self];
+	[NSApp setDelegate:appDelegate];
+	NSLog(@"running");
+	[NSApp run];
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)note
+{
+	NSLog(@"here");
 	mainwin = [[NSWindow alloc]
 		initWithContentRect:NSMakeRect(300, 300, 320, 240)
 		styleMask:(NSTitledWindowMask | NSClosableWindowMask |
@@ -89,14 +104,6 @@ int main(int argc, char *argv[])
 	[[mainwin contentView] setAutoresizesSubviews:YES];
 	buildUI();
 	[mainwin makeKeyAndOrderFront:self];
-	[NSApp finishLaunching];
-	NSLog(@"running");
-	[NSApp run];
-}
-
-- (void)applicationDidFinishLaunching:(NSNotification *)note
-{
-	NSLog(@"here");
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app
