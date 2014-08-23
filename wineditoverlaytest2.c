@@ -1,4 +1,4 @@
-// 22 august 2014
+// 22-23 august 2014
 // edited from wineditoverlaytest 22 august 2014
 // scratch Windows program by pietro gagliardi 17 april 2014
 // fixed typos and added toWideString() 1 may 2014
@@ -26,17 +26,36 @@ HFONT controlfont;
 
 void panic(char *fmt, ...);
 
+HWND area;
 HWND edit;
 
 LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+	RECT r;
+
 	switch (msg) {
-	case WM_LBUTTONUP:
-		MoveWindow(edit, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), 100, 20, TRUE);
-		ShowWindow(edit, SW_SHOW);
+	case WM_SIZE:
+		GetClientRect(hwnd, &r);
+		MoveWindow(area, r.left, r.top, r.right - r.left, r.bottom - r.top, TRUE);
 		return 0;
 	case WM_CLOSE:
 		PostQuitMessage(0);
+		return 0;
+	default:
+		return DefWindowProc(hwnd, msg, wparam, lparam);
+	}
+	panic("oops: message %ud does not return anything; bug in wndproc()", msg);
+}
+
+LRESULT CALLBACK areawndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	switch (msg) {
+	case WM_MOUSEACTIVATE:
+		SetFocus(hwnd);
+		return MA_ACTIVATE;
+	case WM_LBUTTONUP:
+		MoveWindow(edit, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), 100, 20, TRUE);
+		ShowWindow(edit, SW_SHOW);
 		return 0;
 	default:
 		return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -91,11 +110,31 @@ void buildUI(HWND mainwin)
 #define SETFONT(hwnd) SendMessage(hwnd, WM_SETFONT, (WPARAM) controlfont, (LPARAM) TRUE);
 	// build GUI here; use CSTYLE and CXSTYLE in CreateWindowEx() and call SETFONT() on each new widget
 
+	WNDCLASS cls;
+
+	ZeroMemory(&cls, sizeof (WNDCLASS));
+	cls.lpszClassName = L"area";
+	cls.lpfnWndProc = areawndproc;
+	cls.hInstance = hInstance;
+	cls.hIcon = hDefaultIcon;
+	cls.hCursor = hDefaultCursor;
+	cls.hbrBackground = (HBRUSH) (COLOR_GRADIENTACTIVECAPTION + 1);
+	if (RegisterClass(&cls) == 0)
+		panic("error registering area window class");
+	area = CreateWindowEx(0,
+		L"area", L"",
+		WS_CHILD | WS_VISIBLE,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		mainwin, NULL, hInstance, NULL);
+	if (area == NULL)
+		panic("opening main window failed");
+
 	edit = CreateWindowEx(WS_EX_CLIENTEDGE,
 		L"edit", L"",
 		WS_CHILD | ES_AUTOHSCROLL | ES_LEFT | ES_NOHIDESEL | WS_TABSTOP,
 		0, 0, 0, 0,
-		mainwin, NULL, hInstance, NULL);
+		area, NULL, hInstance, NULL);
 	if (edit == NULL)
 		panic("edit creation failed");
 	SETFONT(edit)
