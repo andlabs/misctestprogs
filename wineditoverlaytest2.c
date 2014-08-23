@@ -53,6 +53,13 @@ LRESULT CALLBACK areawndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	case WM_MOUSEACTIVATE:
 		SetFocus(hwnd);
 		return MA_ACTIVATE;
+	case WM_COMMAND:
+		if (HIWORD(wparam) == EN_KILLFOCUS) {
+			MessageBeep(-1);
+			ShowWindow(edit, SW_HIDE);
+			return 0;
+		}
+		return DefWindowProc(hwnd, msg, wparam, lparam);
 	case WM_LBUTTONUP:
 		MoveWindow(edit, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), 100, 20, TRUE);
 		ShowWindow(edit, SW_SHOW);
@@ -86,21 +93,6 @@ HWND makeMainWindow(void)
 	if (hwnd == NULL)
 		panic("opening main window failed");
 	return hwnd;
-}
-
-LRESULT CALLBACK textfieldSubProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR id, DWORD_PTR data)
-{
-	switch (uMsg) {
-	case WM_KILLFOCUS:
-		MessageBeep(-1);
-		ShowWindow(hwnd, SW_HIDE);
-		break;
-	case WM_NCDESTROY:
-		if (RemoveWindowSubclass(hwnd, textfieldSubProc, id) == FALSE)
-			panic("error removing subclass");
-		break;
-	}
-	return DefSubclassProc(hwnd, uMsg, wParam, lParam);
 }
 
 void buildUI(HWND mainwin)
@@ -137,9 +129,7 @@ void buildUI(HWND mainwin)
 		area, NULL, hInstance, NULL);
 	if (edit == NULL)
 		panic("edit creation failed");
-	SETFONT(edit)
-	if (SetWindowSubclass(edit, textfieldSubProc, 0, (DWORD_PTR) NULL) == FALSE)
-		panic("error making subclass");
+	SETFONT(edit);
 }
 
 void firstShowWindow(HWND hwnd);
