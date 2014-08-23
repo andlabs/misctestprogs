@@ -1,4 +1,5 @@
 // 22 august 2014
+// edited from wineditoverlaytest 22 august 2014
 // scratch Windows program by pietro gagliardi 17 april 2014
 // fixed typos and added toWideString() 1 may 2014
 // borrows code from the scratch GTK+ program (16-17 april 2014) and from code written 31 march 2014 and 11-12 april 2014
@@ -10,23 +11,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <getopt.h>
 #include <windows.h>
 #include <commctrl.h>		// needed for InitCommonControlsEx() (thanks Xeek in irc.freenode.net/#winapi for confirming)
 #include <windowsx.h>
 
 #ifdef  _MSC_VER
-#error sorry! the scratch windows program relies on mingw-only functionality! (specifically: asprintf(), getopt_long_only())
+#error sorry! the scratch windows program relies on mingw-only functionality! (specifically: asprintf())
 #endif
-
-// cheating: we store the help string in the flag argument, collect them, then overwrite them with NULL in init() so getopt_long_only() will return val and not overwrite a string (apparently I'm not the first to think of this: GerbilSoft says GNU tools do this too)
-#define flagBool(name, help, short) { name, no_argument, (int *) help, short }
-#define flagString(name, help, short) { name, required_argument, (int *) help, short }
-static struct option flags[] = {
-	// place other options here
-	flagBool("help", "show help and quit", 'h'),
-	{ 0, 0, 0, 0 },
-};
 
 HMODULE hInstance;
 HICON hDefaultIcon;
@@ -78,6 +69,21 @@ HWND makeMainWindow(void)
 	return hwnd;
 }
 
+LRESULT CALLBACK textfieldSubProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR id, DWORD_PTR data)
+{
+	switch (uMsg) {
+	case WM_KILLFOCUS:
+		MessageBeep(-1);
+		ShowWindow(hwnd, SW_HIDE);
+		break;
+	case WM_NCDESTROY:
+		if (RemoveWindowSubclass(hwnd, textfieldSubProc, id) == FALSE)
+			panic("error removing subclass");
+		break;
+	}
+	return DefSubclassProc(hwnd, uMsg, wParam, lParam);
+}
+
 void buildUI(HWND mainwin)
 {
 #define CSTYLE (WS_CHILD | WS_VISIBLE)
@@ -85,15 +91,16 @@ void buildUI(HWND mainwin)
 #define SETFONT(hwnd) SendMessage(hwnd, WM_SETFONT, (WPARAM) controlfont, (LPARAM) TRUE);
 	// build GUI here; use CSTYLE and CXSTYLE in CreateWindowEx() and call SETFONT() on each new widget
 
-	edit = CreateWindowEx(WS_EX_TOOLWINDOW,
+	edit = CreateWindowEx(WS_EX_CLIENTEDGE,
 		L"edit", L"",
-		WS_POPUP | ES_AUTOHSCROLL | WS_BORDER,
+		WS_CHILD | ES_AUTOHSCROLL | ES_LEFT | ES_NOHIDESEL | WS_TABSTOP,
 		0, 0, 0, 0,
-		mainwin,		// owner window
-		NULL, hInstance, NULL);
+		mainwin, NULL, hInstance, NULL);
 	if (edit == NULL)
 		panic("edit creation failed");
 	SETFONT(edit)
+	if (SetWindowSubclass(edit, textfieldSubProc, 0, (DWORD_PTR) NULL) == FALSE)
+		panic("error making subclass");
 }
 
 void firstShowWindow(HWND hwnd);
@@ -218,31 +225,4 @@ void firstShowWindow(HWND hwnd)
 	ShowWindow(hwnd, nCmdShow);
 	if (UpdateWindow(hwnd) == 0)
 		panic("UpdateWindow(hwnd) failed in first show");
-}
-
-TCHAR *toWideString(char *what)
-{
-	TCHAR *buf;
-	int n;
-	size_t len;
-
-	len = strlen(what);
-	if (len == 0) {
-		buf = (TCHAR *) malloc(sizeof (TCHAR));
-		if (buf == NULL)
-			goto mallocfail;
-		buf[0] = L'\0';
-	} else {
-		n = MultiByteToWideChar(CP_UTF8, 0, what, -1, NULL, 0);
-		if (n == 0)
-			panic("error getting number of bytes to convert \"%s\" to UTF-16", what);
-		buf = (TCHAR *) malloc((n + 1) * sizeof (TCHAR));
-		if (buf == NULL)
-			goto mallocfail;
-		if (MultiByteToWideChar(CP_UTF8, 0, what, -1, buf, n) == 0)
-			panic("erorr converting \"%s\" to UTF-16", what);
-	}
-	return buf;
-mallocfail:
-	panic("error allocating memory for UTF-16 version of \"%s\"", what);
 }
