@@ -48,7 +48,10 @@ GtkWidget *buildUI(void)
 
 	GtkWidget *widget, *widget2;
 
-	widget = gtk_drawing_area_new();
+	widget2 = gtk_drawing_area_new();
+	gtk_widget_set_size_request(widget2, 500, 500);
+	widget = gtk_scrolled_window_new(NULL, NULL);
+	gtk_container_add(GTK_CONTAINER(widget), widget2);
 	EXPAND(widget, TRUE, TRUE);
 	ALIGN(widget, FILL, FILL);
 	ADDNEXTTO(widget, NULL, BOTTOM, 3, 6);
