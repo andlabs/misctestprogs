@@ -25,6 +25,7 @@
 #include <vssym32.h>
 #include <stdarg.h>
 #include <oleacc.h>
+#include <stdio.h>
 
 static ULONG_PTR comctlManifestCookie;
 static HMODULE comctl32;
@@ -158,6 +159,13 @@ void deln(int which)
 	SendMessageW(lv, LVM_DELETEITEM, (WPARAM) which, 0);
 }
 
+BOOL fullrow = TRUE;
+BOOL hascheckboxes = FALSE;
+BOOL tooltips = FALSE;
+BOOL gridlines = FALSE;
+DWORD lvstyle = 0;
+DWORD lvexstyle = WS_EX_CLIENTEDGE;
+
 BOOL create(HWND hwnd, LPCREATESTRUCT lpcs)
 {
 	LVCOLUMNW col;
@@ -179,13 +187,20 @@ BOOL create(HWND hwnd, LPCREATESTRUCT lpcs)
 	MKBUTTON(bDelMiddle, L"Delete 15", 3);
 
 #define LVTOP (MARGIN + BTNHT + PADDING)
-	lv = CreateWindowExW(WS_EX_CLIENTEDGE,
+	lv = CreateWindowExW(lvexstyle,
 		WC_LISTVIEWW, L"Main Window",
-		LVS_REPORT | LVS_NOSORTHEADER | LVS_SHOWSELALWAYS | LVS_SINGLESEL | WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_VISIBLE,
+		LVS_REPORT | LVS_NOSORTHEADER | LVS_SHOWSELALWAYS | LVS_SINGLESEL | WS_CHILD | WS_HSCROLL | WS_VSCROLL | WS_VISIBLE | lvstyle,
 		MARGIN, LVTOP,
 		WINWIDTH - (2 * MARGIN), WINHEIGHT - LVTOP - MARGIN,
 		hwnd, NULL, GetModuleHandle(NULL), NULL);
-	SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_FULLROWSELECT, LVS_EX_FULLROWSELECT);
+	if (fullrow)
+		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_FULLROWSELECT, LVS_EX_FULLROWSELECT);
+	if (hascheckboxes)
+		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
+	if (tooltips)
+		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_LABELTIP, LVS_EX_LABELTIP);
+	if (gridlines)
+		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_GRIDLINES, LVS_EX_GRIDLINES);
 
 	for (i = 0; i < 5; i++) {
 		ZeroMemory(&col, sizeof (LVCOLUMNW));
@@ -257,7 +272,7 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	WNDCLASSW wc;
 	HWND hwnd;
@@ -267,13 +282,40 @@ int main(void)
 	char *m;
 	RECT winr;
 	NONCLIENTMETRICSW ncm;
+	int i;
+	BOOL comctl6 = TRUE;
+
+	for (i = 1; i < argc; i++)
+		if (strcmp(argv[i], "windowedge") == 0)
+			lvexstyle = WS_EX_WINDOWEDGE;
+		else if (strcmp(argv[i], "bothedges") == 0)
+			lvexstyle = WS_EX_CLIENTEDGE | WS_EX_WINDOWEDGE;
+		else if (strcmp(argv[i], "noedges") == 0)
+			lvexstyle = 0;
+		else if (strcmp(argv[i], "border") == 0)
+			lvstyle = WS_BORDER;
+		else if (strcmp(argv[i], "nofullrow") == 0)
+			fullrow = FALSE;
+		else if (strcmp(argv[i], "comctl5") == 0)
+			comctl6 = FALSE;
+		else if (strcmp(argv[i], "checkboxes") == 0)
+			hascheckboxes = TRUE;
+		else if (strcmp(argv[i], "tooltips") == 0)
+			tooltips = TRUE;
+		else if (strcmp(argv[i], "gridlines") == 0)
+			gridlines = TRUE;
+		else {
+			fprintf(stderr, "unknown option %s\n", argv[i]);
+			return 1;
+		}
 
 	ZeroMemory(&ncm, sizeof (NONCLIENTMETRICSW));
 	ncm.cbSize = sizeof (NONCLIENTMETRICSW);
 	SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof (NONCLIENTMETRICSW), &ncm, sizeof (NONCLIENTMETRICSW));
 	msgfont = CreateFontIndirectW(&(ncm.lfMessageFont));
 
-	initCommonControls(&m);
+	if (comctl6)
+		initCommonControls(&m);
 
 	ZeroMemory(&wc, sizeof (WNDCLASSW));
 	wc.lpszClassName = L"mainwin";
