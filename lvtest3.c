@@ -1,4 +1,4 @@
-// 17 march 2015
+// 17-21 march 2015
 // based on lvtest2 6 january 2015
 // based on lvtest 14 december 2014
 // package ui comctl32.dll code 17 july 2014
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 		else if (strcmp(argv[i], "noedges") == 0)
 			lvexstyle = 0;
 		else if (strcmp(argv[i], "border") == 0)
-			lvstyle = WS_BORDER;
+			lvstyle |= WS_BORDER;
 		else if (strcmp(argv[i], "nofullrow") == 0)
 			fullrow = FALSE;
 		else if (strcmp(argv[i], "comctl5") == 0)
@@ -304,6 +304,8 @@ int main(int argc, char *argv[])
 			tooltips = TRUE;
 		else if (strcmp(argv[i], "gridlines") == 0)
 			gridlines = TRUE;
+		else if (strcmp(argv[i], "editlabels") == 0)
+			lvstyle |= LVS_EDITLABELS;
 		else {
 			fprintf(stderr, "unknown option %s\n", argv[i]);
 			return 1;
