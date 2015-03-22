@@ -163,8 +163,11 @@ BOOL fullrow = TRUE;
 BOOL hascheckboxes = FALSE;
 BOOL tooltips = FALSE;
 BOOL gridlines = FALSE;
+BOOL custommargin = FALSE;
+// TODO make an option
+#define CUSTOMMARGIN 30
 DWORD lvstyle = 0;
-DWORD lvexstyle = WS_EX_CLIENTEDGE;
+DWORD lvexstyle = 0;
 
 BOOL create(HWND hwnd, LPCREATESTRUCT lpcs)
 {
@@ -201,6 +204,13 @@ BOOL create(HWND hwnd, LPCREATESTRUCT lpcs)
 		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_LABELTIP, LVS_EX_LABELTIP);
 	if (gridlines)
 		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_GRIDLINES, LVS_EX_GRIDLINES);
+
+	if (custommargin) {
+		HWND header;
+
+		header = (HWND) SendMessageW(lv, LVM_GETHEADER, 0, 0);
+		SendMessageW(header, HDM_SETBITMAPMARGIN, CUSTOMMARGIN, 0);
+	}
 
 	for (i = 0; i < 5; i++) {
 		ZeroMemory(&col, sizeof (LVCOLUMNW));
@@ -284,14 +294,16 @@ int main(int argc, char *argv[])
 	NONCLIENTMETRICSW ncm;
 	int i;
 	BOOL comctl6 = TRUE;
+	DWORD edges = 0;
+	BOOL noclientedge = FALSE;
 
 	for (i = 1; i < argc; i++)
 		if (strcmp(argv[i], "windowedge") == 0)
-			lvexstyle = WS_EX_WINDOWEDGE;
-		else if (strcmp(argv[i], "bothedges") == 0)
-			lvexstyle = WS_EX_CLIENTEDGE | WS_EX_WINDOWEDGE;
-		else if (strcmp(argv[i], "noedges") == 0)
-			lvexstyle = 0;
+			edges |= WS_EX_WINDOWEDGE;
+		else if (strcmp(argv[i], "staticedge") == 0)
+			edges |= WS_EX_STATICEDGE;
+		else if (strcmp(argv[i], "noclientedge") == 0)
+			noclientedge = TRUE;
 		else if (strcmp(argv[i], "border") == 0)
 			lvstyle |= WS_BORDER;
 		else if (strcmp(argv[i], "nofullrow") == 0)
@@ -306,10 +318,16 @@ int main(int argc, char *argv[])
 			gridlines = TRUE;
 		else if (strcmp(argv[i], "editlabels") == 0)
 			lvstyle |= LVS_EDITLABELS;
+		else if (strcmp(argv[i], "custommargin") == 0)
+			custommargin = TRUE;
 		else {
 			fprintf(stderr, "unknown option %s\n", argv[i]);
 			return 1;
 		}
+
+	if (!noclientedge)
+		edges |= WS_EX_CLIENTEDGE;
+	lvexstyle |= edges;
 
 	ZeroMemory(&ncm, sizeof (NONCLIENTMETRICSW));
 	ncm.cbSize = sizeof (NONCLIENTMETRICSW);
