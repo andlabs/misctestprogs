@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 2 april 2015 -->
+<interface>
+	<object class="GtkDialog" id="dialog">
+		<child internal-child="vbox">
+			<object class="GtkDialog" id="box">
+				<child>
+					<!-- something large to give the dialog window some size -->
+					<object class="GtkPlacesSidebar" id="content">
+					</object>
+				</child>
+			</object>
+		</child>
+		<child type="action">
+			<object class="GtkButton" id="ok">
+					<property name="label">OK</property>
+					<property name="visible">True</property>
+			</object>
+		</child>
+		<action-widgets>
+			<action-widget response="ok" default="true">ok</action-widget>
+		</action-widgets>
+		<child type="titlebar">
+			<object class="GtkHeaderBar" id="headerbar">
+				<property name="visible">True</property>
+				<child>
+					<object class="GtkButton" id="button">
+						<property name="label">Do You See Me?</property>
+						<property name="visible">True</property>
+					</object>
+				</child>
+			</object>
+		</child>
+	</object>
+</interface>
