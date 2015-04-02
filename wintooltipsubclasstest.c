@@ -1,4 +1,4 @@
-// 31 march 2015
+// 31 march-2 april 2015
 #define UNICODE
 #define _UNICODE
 #define STRICT
@@ -42,7 +42,7 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 
 		ZeroMemory(&ti, sizeof (TOOLINFOW));
-		ti.cbSize = sizeof (TOOLINFOW);
+		ti.cbSize = TTTOOLINFOW_V2_SIZE;
 		ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS | TTF_TRANSPARENT;
 		ti.hwnd = hwnd;
 		ti.uId = (UINT_PTR) hwnd;
