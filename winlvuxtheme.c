@@ -1,4 +1,4 @@
-// 2 april 2015
+// 2-3 april 2015
 #define UNICODE
 #define _UNICODE
 #define STRICT
@@ -26,7 +26,7 @@
 void die(char *why)
 {
 	fprintf(stderr, "error %s: %I32u\n", why, GetLastError());
-	abort();
+//TODO	abort();
 }
 
 void diehr(char *why, HRESULT hr)
@@ -40,7 +40,15 @@ void diehr(char *why, HRESULT hr)
 
 #define itemText L"This is the item text that will be drawn"
 #define xoff 20
-#define yoff 20
+#define yoff 40
+#define yoffCheckbox 20
+
+HWND backgroundCheck, textCheck, explorerCheck;
+
+BOOL checked(HWND cb)
+{
+	return (SendMessageW(cb, BM_GETSTATE, 0, 0) & BST_CHECKED) == BST_CHECKED;
+}
 
 int drawItem(HDC dc, HTHEME theme, int ypos, int state)
 {
@@ -60,18 +68,22 @@ size.cx=150;
 size.cy=18;
 	r.right = r.left + size.cx;
 	r.bottom = r.top + size.cy;
-	hr = DrawThemeBackground(theme, dc,
-		LVP_LISTITEM, state,
-		&r, NULL);
-	if (hr != S_OK)
-		diehr("drawing theme background", hr);
-	hr = DrawThemeText(theme, dc,
-		LVP_LISTITEM, state,
-		itemText, -1,
-		DT_END_ELLIPSIS | DT_LEFT | DT_NOPREFIX | DT_SINGLELINE,
-		0, &r);
-	if (hr != S_OK)
-		diehr("drawing theme text", hr);
+	if (checked(backgroundCheck)) {
+		hr = DrawThemeBackground(theme, dc,
+			LVP_LISTITEM, state,
+			&r, NULL);
+		if (hr != S_OK)
+			diehr("drawing theme background", hr);
+	}
+	if (checked(textCheck)) {
+		hr = DrawThemeText(theme, dc,
+			LVP_LISTITEM, state,
+			itemText, -1,
+			DT_END_ELLIPSIS | DT_LEFT | DT_NOPREFIX | DT_SINGLELINE,
+			0, &r);
+		if (hr != S_OK)
+			diehr("drawing theme text", hr);
+	}
 	return ypos + size.cy;
 }
 
@@ -109,6 +121,9 @@ void draw(HWND hwnd)
 
 LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	LPCWSTR app;
+	HRESULT hr;
+
 	switch (uMsg) {
 	case WM_PAINT:
 		draw(hwnd);
@@ -116,6 +131,22 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_THEMECHANGED:
 		if (InvalidateRect(hwnd, NULL, TRUE) == 0)
 			die("redrawing on theme change");
+		return 0;
+	case WM_COMMAND:
+		if ((HWND) lParam != backgroundCheck &&
+			(HWND) lParam != textCheck &&
+			(HWND) lParam != explorerCheck)
+			break;
+		if ((HWND) lParam == explorerCheck) {
+			app = NULL;
+			if (checked(explorerCheck))
+				app = L"Explorer";
+			hr = SetWindowTheme(hwnd, app, NULL);
+			if (hr != S_OK)
+				die("setting or clearing Explorer listview style");
+		}
+		if (InvalidateRect(hwnd, NULL, TRUE) == 0)
+			die("redrawing window after checkbox change");
 		return 0;
 	case WM_CLOSE:
 		PostQuitMessage(0);
@@ -157,6 +188,17 @@ int main(void)
 		NULL, NULL, hInstance, NULL);
 	if (mainwin == NULL)
 		die("opening main window");
+
+#define mkcheck(label, x, wid) CreateWindowExW(0, L"button", label, BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE, x, yoffCheckbox, wid, 16, mainwin, NULL, hInstance, NULL)
+	backgroundCheck = mkcheck(L"Background", xoff, 100);
+	if (backgroundCheck == NULL)
+		die("creating Background checkbox");
+	textCheck = mkcheck(L"Text", xoff + 100 + 5, 50);
+	if (textCheck == NULL)
+		die("creating Text checkbox");
+	explorerCheck = mkcheck(L"Explorer", xoff + 100 + 5 + 50 + 5, 100);
+	if (explorerCheck == NULL)
+		die("creating Explorer checkbox");
 
 	ShowWindow(mainwin, SW_SHOWDEFAULT);
 	if (UpdateWindow(mainwin) == 0)
