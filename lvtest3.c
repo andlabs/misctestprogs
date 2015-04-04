@@ -1,7 +1,9 @@
-// 17-21 march 2015
+// 17 march-4 april 2015
 // based on lvtest2 6 january 2015
 // based on lvtest 14 december 2014
 // package ui comctl32.dll code 17 july 2014
+
+// TODO set focus on list view at first?
 
 #define UNICODE
 #define _UNICODE
@@ -164,6 +166,7 @@ BOOL hascheckboxes = FALSE;
 BOOL tooltips = FALSE;
 BOOL gridlines = FALSE;
 BOOL custommargin = FALSE;
+BOOL hotlabels = FALSE;
 // TODO make an option
 #define CUSTOMMARGIN 30
 DWORD lvstyle = 0;
@@ -204,6 +207,8 @@ BOOL create(HWND hwnd, LPCREATESTRUCT lpcs)
 		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_LABELTIP, LVS_EX_LABELTIP);
 	if (gridlines)
 		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, LVS_EX_GRIDLINES, LVS_EX_GRIDLINES);
+	if (hotlabels)
+		SendMessageW(lv, LVM_SETEXTENDEDLISTVIEWSTYLE, (LVS_EX_UNDERLINEHOT | LVS_EX_ONECLICKACTIVATE), (LVS_EX_UNDERLINEHOT | LVS_EX_ONECLICKACTIVATE));
 
 	if (custommargin) {
 		HWND header;
@@ -225,7 +230,9 @@ BOOL create(HWND hwnd, LPCREATESTRUCT lpcs)
 		for (j = 0; j < 5; j++) {
 			ZeroMemory(&item, sizeof (LVITEMW));
 			item.mask = LVIF_TEXT;
-			if ((i % 6) == 5 && j == 0)
+			if (i == 5 && j == 0)
+				item.pszText = L"0123456789112345678921234567893123456789412345678951234567896123456789712345This label is longer than the supposed maximum tooltip width!";
+			else if ((i % 6) == 5 && j == 0)
 				item.pszText = L"Very long item text that will be ellipsized";
 			else {
 				wsprintf(text, L"Item (%d,%d)", i, j);
@@ -320,6 +327,8 @@ int main(int argc, char *argv[])
 			lvstyle |= LVS_EDITLABELS;
 		else if (strcmp(argv[i], "custommargin") == 0)
 			custommargin = TRUE;
+		else if (strcmp(argv[i], "hotlabels") == 0)
+			hotlabels = TRUE;
 		else {
 			fprintf(stderr, "unknown option %s\n", argv[i]);
 			return 1;
