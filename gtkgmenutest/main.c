@@ -11,10 +11,12 @@ int main(void)
 	GtkWidget *mainwin;
 	GtkWidget *box;
 	struct menu *menu;
+	GActionGroup *actions;
 
 	gtk_init(NULL, NULL);
 
 	menu = makeMenu();
+	actions = makeActions();
 
 	mainwin = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(mainwin), "Multiple Menus Test");
@@ -25,10 +27,12 @@ int main(void)
 
 	gtk_container_add(GTK_CONTAINER(box), gtk_label_new("Menubar 1"));
 	menu1 = gtk_menu_bar_new_from_model(menuModel(menu));
+	gtk_widget_insert_action_group(menu1, "libui", actions);
 	gtk_container_add(GTK_CONTAINER(box), menu1);
 
 	gtk_container_add(GTK_CONTAINER(box), gtk_label_new("Menubar 2"));
 	menu2 = gtk_menu_bar_new_from_model(menuModel(menu));
+	gtk_widget_insert_action_group(menu2, "libui", actions);
 	gtk_container_add(GTK_CONTAINER(box), menu2);
 
 	lastLabel = gtk_label_new("No previous item selected.");

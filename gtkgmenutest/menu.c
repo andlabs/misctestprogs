@@ -48,19 +48,19 @@ struct menu *makeMenu(void)
 	g_menu_append_item(m->menubar, item);
 
 	section = g_menu_new();
-	m->undoItem = g_menu_item_new("Undo...", "libui.test");
+	m->undoItem = g_menu_item_new("Undo...", NULL);
 	g_menu_append_item(section, m->undoItem);
 	g_menu_append_section(m->editMenu, NULL, G_MENU_MODEL(section));
 
 	section = g_menu_new();
-	m->checkItem = g_menu_item_new("Check Me\tTest", "libui.checkable");
+	m->checkItem = g_menu_item_new("Check Me\tTest", NULL);
 	g_menu_append_item(section, m->checkItem);
-	m->accelItem = g_menu_item_new("A&ccele&&rator T_es__t", "libui.test");
+	m->accelItem = g_menu_item_new("A&ccele&&rator T_es__t", NULL);
 	g_menu_append_item(section, m->accelItem);
 	g_menu_append_section(m->editMenu, NULL, G_MENU_MODEL(section));
 
 	section = g_menu_new();
-	m->prefsItem = g_menu_item_new("Preferences...", "libui.test");
+	m->prefsItem = g_menu_item_new("Preferences...", NULL);
 	g_menu_append_item(section, m->prefsItem);
 	g_menu_append_section(m->editMenu, NULL, G_MENU_MODEL(section));
 
@@ -69,12 +69,12 @@ struct menu *makeMenu(void)
 	g_menu_append_item(m->menubar, item);
 
 	section = g_menu_new();
-	m->helpItem = g_menu_item_new("Help", "libui.test");
+	m->helpItem = g_menu_item_new("Help", NULL);
 	g_menu_append_item(section, m->helpItem);
 	g_menu_append_section(m->helpMenu, NULL, G_MENU_MODEL(section));
 
 	section = g_menu_new();
-	m->aboutItem = g_menu_item_new("About", "libui.test");
+	m->aboutItem = g_menu_item_new("About", NULL);
 	g_menu_append_item(section, m->aboutItem);
 	g_menu_append_section(m->helpMenu, NULL, G_MENU_MODEL(section));
 
