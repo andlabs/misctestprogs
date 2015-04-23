@@ -10,7 +10,7 @@ int main(void)
 {
 	GtkWidget *mainwin;
 	GtkWidget *box;
-	GMenuModel *menu;
+	struct menu *menu;
 
 	gtk_init(NULL, NULL);
 
@@ -24,11 +24,11 @@ int main(void)
 	gtk_container_add(GTK_CONTAINER(mainwin), box);
 
 	gtk_container_add(GTK_CONTAINER(box), gtk_label_new("Menubar 1"));
-	menu1 = gtk_menu_bar_new_from_model(menu);
+	menu1 = gtk_menu_bar_new_from_model(menuModel(menu));
 	gtk_container_add(GTK_CONTAINER(box), menu1);
 
 	gtk_container_add(GTK_CONTAINER(box), gtk_label_new("Menubar 2"));
-	menu2 = gtk_menu_bar_new_from_model(menu);
+	menu2 = gtk_menu_bar_new_from_model(menuModel(menu));
 	gtk_container_add(GTK_CONTAINER(box), menu2);
 
 	lastLabel = gtk_label_new("No previous item selected.");
