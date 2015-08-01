@@ -11,7 +11,7 @@ NSButton *makeButton(NSString *);
 - (void)applicationDidFinishLaunching:(NSNotification *)note
 {
 	NSWindow *w;
-	NSButton *a, *b, *c;
+	NSButton *a, *b, *c, *d;
 	NSDictionary *views;
 	NSArray *constraints;
 
@@ -27,14 +27,17 @@ NSButton *makeButton(NSString *);
 	[[w contentView] addSubview:b];
 	c = makeButton(@"C");
 	[[w contentView] addSubview:c];
+	d = makeButton(@"D");
+	[[w contentView] addSubview:d];
 
 	/* intended layout:
 	   +------[Auto Layout Test]------+
 	   |[      A      ]               |
 	   |[      B      ][      C      ]|
+	   |               [      D      ]|
 	   |                              | */
 
-	views = NSDictionaryOfVariableBindings(a, b, c);
+	views = NSDictionaryOfVariableBindings(a, b, c, d);
 
 #define CC(x) constraints = [NSLayoutConstraint constraintsWithVisualFormat:x options:0 metrics:nil views:views]
 	CC(@"H:|[a(==b)]");
@@ -45,13 +48,17 @@ NSButton *makeButton(NSString *);
 	[[w contentView] addConstraints:constraints];
 	CC(@"V:|[a][c]");
 	[[w contentView] addConstraints:constraints];
+	CC(@"H:[d(==b)]|");
+	[[w contentView] addConstraints:constraints];
+	CC(@"V:[c][d]");
+	[[w contentView] addConstraints:constraints];
 #undef CC
 
 	[w cascadeTopLeftFromPoint:NSMakePoint(20, 20)];
 	[w makeKeyAndOrderFront:self];
 }
 
-- (BOOL)applicationShouldTerminateWhenLastWindowClosed
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)a
 {
 	return YES;
 }
