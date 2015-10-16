@@ -44,7 +44,7 @@ void putstr(CGContextRef c, const char *str, double x, double y)
 - (void)drawRect:(NSRect)r
 {
 	CGContextRef c;
-	CGFloat lengths[2] = { 5, 3 };
+	CGFloat lengths[2] = { 10, 13 };
 	CGMutablePathRef buildpath;
 	CGPathRef copy, copy2;
 
@@ -63,12 +63,45 @@ void putstr(CGContextRef c, const char *str, double x, double y)
 	CGContextSetLineDash(c, 0, lengths, 2);
 	CGContextSetRGBStrokeColor(c, 0, 0, 0, 1);
 	CGContextStrokePath(c);
+	// and reset
+	CGContextSetLineWidth(c, 1);
+	CGContextSetLineJoin(c, kCGLineJoinMiter);
+	CGContextSetLineCap(c, kCGLineCapButt);
+	CGContextSetLineDash(c, 0, NULL, 0);
 
 	CGContextTranslateCTM(c, 0, 100);
 	putstr(c, "Dash With CGPath Functions", 10, 10);
+	buildpath = CGPathCreateMutable();
+	CGPathMoveToPoint(buildpath, NULL, 50, 50);
+	CGPathAddLineToPoint(buildpath, NULL, 100, 30);
+	CGPathAddLineToPoint(buildpath, NULL, 150, 70);
+	CGPathAddLineToPoint(buildpath, NULL, 200, 50);
+	copy = CGPathCreateCopyByDashingPath(buildpath, NULL, 0, lengths, 2);
+	CGContextAddPath(c, copy);
+	CGContextStrokePath(c);
+	CGContextAddPath(c, copy);
+	CGContextSetRGBFillColor(c, 0, 0.25, 0.5, 1);
+	CGContextFillPath(c);
+	CGPathRelease(copy);
+	CGPathRelease((CGPathRef) buildpath);
 
 	CGContextTranslateCTM(c, 0, 100);
 	putstr(c, "Dash + Stroke With CGPath Functions", 10, 10);
+	buildpath = CGPathCreateMutable();
+	CGPathMoveToPoint(buildpath, NULL, 50, 50);
+	CGPathAddLineToPoint(buildpath, NULL, 100, 30);
+	CGPathAddLineToPoint(buildpath, NULL, 150, 70);
+	CGPathAddLineToPoint(buildpath, NULL, 200, 50);
+	copy = CGPathCreateCopyByDashingPath(buildpath, NULL, 0, lengths, 2);
+	copy2 = CGPathCreateCopyByStrokingPath(copy, NULL, 10, kCGLineCapRound, kCGLineJoinBevel, 10);
+	CGContextAddPath(c, copy2);
+	CGContextSetRGBFillColor(c, 0, 0.25, 0.5, 1);
+	CGContextFillPath(c);
+	CGContextAddPath(c, copy2);
+	CGContextStrokePath(c);
+	CGPathRelease(copy2);
+	CGPathRelease(copy);
+	CGPathRelease((CGPathRef) buildpath);
 
 	CGContextRestoreGState(c);
 }
@@ -93,7 +126,7 @@ void putstr(CGContextRef c, const char *str, double x, double y)
 	NSDictionary *views;
 	NSArray *constraints;
 
-	mainwin = [[NSWindow alloc] initWithContentRect: NSMakeRect(0, 0, 320, 240)
+	mainwin = [[NSWindow alloc] initWithContentRect: NSMakeRect(0, 0, 320, 360)
 		styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
 		backing:NSBackingStoreBuffered
 		defer:YES];
