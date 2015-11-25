@@ -68,6 +68,7 @@ void wpfInit(void)
 	// see http://stackoverflow.com/questions/24348205/how-do-i-solve-this-com-issue-in-c
 	// we MUST be running STA
 	// .net initializes as MTA for some stupid reason
+	// TODO https://msdn.microsoft.com/en-us/library/5s8ee185%28v=vs.71%29.aspx use CoInitializeEx()?
 	hr = CoInitialize(NULL);
 	if (hr != S_OK && hr != S_FALSE)
 		DebugBreak();
