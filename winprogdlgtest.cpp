@@ -59,7 +59,7 @@ void waitEvent(void)
 	}
 }
 
-void rundialogs(HWND parent, bool pumpMessages, bool tryHide, int tryHideWhat, bool abort)
+void rundialogs(HWND parent, bool pumpMessages, bool tryHide, int tryHideWhat, bool abort, bool nomsgbox)
 {
 	IProgressDialog *pd;
 	IOleWindow *olewin;
@@ -123,6 +123,8 @@ void rundialogs(HWND parent, bool pumpMessages, bool tryHide, int tryHideWhat, b
 		}
 	pd->Release();
 
+	if (nomsgbox)
+		return;
 	MessageBoxW(parent,
 		L"This should be MODAL to the main window!\n"
 		L"But you should see that in reality the main window\n"
@@ -136,6 +138,7 @@ HWND checkbox;
 HWND checkbox2;
 HWND combobox;
 HWND checkbox3;
+HWND checkbox4;
 
 bool ischecked(HWND hwnd) { return SendMessageW(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED; }
 
@@ -146,7 +149,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 			ischecked(checkbox),
 			ischecked(checkbox2),
 			(int) SendMessageW(combobox, CB_GETCURSEL, 0, 0),
-			ischecked(checkbox3));
+			ischecked(checkbox3),
+			ischecked(checkbox4));
 	if (uMsg == WM_CLOSE)
 		PostQuitMessage(0);
 	return DefWindowProcW(hwnd, uMsg, wParam, lParam);
@@ -171,7 +175,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 		L"mainwin", L"mainwin",
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		200, 220,
+		200, 230,
 		NULL, NULL, hInstance, NULL);
 
 	button = CreateWindowExW(0,
@@ -204,6 +208,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 		L"button", L"Abort Early",
 		BS_CHECKBOX | BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE,
 		10, 150, 150, 20,
+		mainwin, (HMENU) 103, hInstance, NULL);
+	checkbox4 = CreateWindowExW(0,
+		L"button", L"No Message Box",
+		BS_CHECKBOX | BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE,
+		10, 170, 150, 20,
 		mainwin, (HMENU) 103, hInstance, NULL);
 
 	ShowWindow(mainwin, nCmdShow);
