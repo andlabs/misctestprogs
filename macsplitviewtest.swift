@@ -1,6 +1,7 @@
 // 3 january 2016
 // scratch program 17 august 2015
 import Cocoa
+import WebKit
 
 var keepAliveMainwin: NSWindow? = nil
 
@@ -18,17 +19,15 @@ func appLaunched() {
 	splitView.translatesAutoresizingMaskIntoConstraints = false
 	contentView.addSubview(splitView)
 
-	let box1 = NSBox(frame: NSZeroRect)
-	box1.boxType = NSBoxType.Custom
-	box1.borderType = NSBorderType.LineBorder
-	box1.fillColor = NSColor(forControlTint: NSControlTint.GraphiteControlTint)
+	let box1 = NSScrollView(frame: NSZeroRect)
+	let ov = NSOutlineView(frame: NSZeroRect)
+	ov.headerView = nil
+	ov.selectionHighlightStyle = NSTableViewSelectionHighlightStyle.SourceList
+	box1.documentView = ov
 	box1.translatesAutoresizingMaskIntoConstraints = false
 	splitView.addSubview(box1)
 
-	let box2 = NSBox(frame: NSZeroRect)
-	box2.boxType = NSBoxType.Custom
-	box2.borderType = NSBorderType.LineBorder
-	box2.fillColor = NSColor(forControlTint: NSControlTint.BlueControlTint)
+	let box2 = WebView(frame: NSZeroRect)
 	box2.translatesAutoresizingMaskIntoConstraints = false
 	splitView.addSubview(box2)
 
