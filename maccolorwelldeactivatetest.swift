@@ -37,13 +37,19 @@ func appLaunched() {
 	well2.translatesAutoresizingMaskIntoConstraints = false
 	contentView.addSubview(well2)
 
+	let tv = NSTextView(frame: NSZeroRect)
+	tv.translatesAutoresizingMaskIntoConstraints = false
+	contentView.addSubview(tv)
+
 	let views = [
 		"well1":	well1,
 		"well2":	well2,
+		"tv":		tv,
 	]
 	addConstraint(contentView, "H:|-[well1]-|", views)
 	addConstraint(contentView, "H:|-[well2]-|", views)
-	addConstraint(contentView, "V:|-[well1]-[well2(==well1)]-|", views)
+	addConstraint(contentView, "H:|-[tv]-|", views)
+	addConstraint(contentView, "V:|-[well1]-[tv(==well1)]-[well2(==well1)]-|", views)
 
 	mainwin.cascadeTopLeftFromPoint(NSMakePoint(20, 20))
 	mainwin.makeKeyAndOrderFront(mainwin)
@@ -66,9 +72,11 @@ func noOpt(_ opt: AnyObject?) -> String {
 	return "\(opt!)"
 }
 
+var inhibit: Bool = false
+
 class ourApp : NSApplication {
 	override func sendAction(_ theAction: Selector, to theTarget: AnyObject?, from sender: AnyObject?) -> Bool {
-		if theAction == "changeColor:" {
+		if inhibit && theAction == "changeColor:" {
 			debugPrint("overriding changeColor: (\(noOpt(sender)) -> \(noOpt(theTarget)))")
 			return false
 		}
@@ -95,4 +103,5 @@ func main() {
 	app.run()
 }
 
+inhibit = (Process.arguments.count > 1 && Process.arguments[1] == "inhibit")
 main()
