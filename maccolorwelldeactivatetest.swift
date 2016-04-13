@@ -59,6 +59,23 @@ func addConstraint(view: NSView, _ constraint: String, _ views: [String: NSView]
 	view.addConstraints(constraints)
 }
 
+func noOpt(_ opt: AnyObject?) -> String {
+	if opt == nil {
+		return "nil"
+	}
+	return "\(opt!)"
+}
+
+class ourApp : NSApplication {
+	override func sendAction(_ theAction: Selector, to theTarget: AnyObject?, from sender: AnyObject?) -> Bool {
+		if theAction == "changeColor:" {
+			debugPrint("overriding changeColor: (\(noOpt(sender)) -> \(noOpt(theTarget)))")
+			return false
+		}
+		return super.sendAction(theAction, to: theTarget, from: sender)
+	}
+}
+
 class appDelegate : NSObject, NSApplicationDelegate {
 	func applicationDidFinishLaunching(note: NSNotification) {
 		appLaunched()
@@ -70,7 +87,7 @@ class appDelegate : NSObject, NSApplicationDelegate {
 }
 
 func main() {
-	let app = NSApplication.sharedApplication()
+	let app = ourApp.sharedApplication()
 	app.setActivationPolicy(NSApplicationActivationPolicy.Regular)
 	// NSApplication.delegate is weak; if we don't use the temporary variable, the delegate will die before it's used
 	let delegate = appDelegate()
