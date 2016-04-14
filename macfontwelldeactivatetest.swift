@@ -75,7 +75,7 @@ class fontButton : NSButton {
 	}
 
 	override func validModesForFontPanel(_ fontPanel: NSFontPanel) -> Int {
-		return Int(NSFontPanelAllModesMask)
+		return Int(NSFontPanelFaceModeMask | NSFontPanelSizeModeMask | NSFontPanelCollectionModeMask)
 	}
 }
 
