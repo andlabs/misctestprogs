@@ -16,6 +16,7 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		PostQuitMessage(0);
 		break;
 	case WM_TIMER:
+		SetWindowLongPtrW(hwnd, GWLP_USERDATA, TRUE);
 		GetWindowRect(hwnd, &r);
 		printf("= %d\n", SetWindowPos(hwnd, NULL,
 			r.left, r.top,
@@ -33,6 +34,8 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_GETMINMAXINFO:
 		printf("gmmi\n");
+		if (GetWindowLongPtrW(hwnd, GWLP_USERDATA))
+			((MINMAXINFO *) lParam)->ptMinTrackSize.y = 600;
 		break;
 	}
 	return DefWindowProcW(hwnd, uMsg, wParam, lParam);
