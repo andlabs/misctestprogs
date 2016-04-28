@@ -31,6 +31,9 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_WINDOWPOSCHANGED:
 		printf("0x%X\n", wp->flags);
 		break;
+	case WM_GETMINMAXINFO:
+		printf("gmmi\n");
+		break;
 	}
 	return DefWindowProcW(hwnd, uMsg, wParam, lParam);
 }
