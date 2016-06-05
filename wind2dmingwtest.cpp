@@ -32,7 +32,6 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 	D2D1_RECT_F rect;
 	HRESULT hr;
 
-	rt->GetSize();
 	rt->BeginDraw();
 
 	color.r = 1.0;
