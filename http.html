@@ -1,0 +1,49 @@
+<!-- 23 june 2016 -->
+<!DOCTYPE html>
+<html>
+<head>
+	<script type="text/javascript">
+	<!--
+	function byid(id) {
+		return document.getElementById(id)
+	}
+
+	function issue() {
+		var requrl = byid("requrl");
+		var reqtype = byid("reqtype");
+		var reqbody = byid("reqbody");
+		var respcode = byid("respcode");
+		var respbody = byid("respbody");
+
+		try {
+			var req = new XMLHttpRequest();
+			req.open(reqtype.value, requrl.value, false);
+			req.setRequestHeader("Content-Type", "application/json");
+			req.send(reqbody.value);
+			respcode.innerHTML = req.status;
+			var resptext = req.responseText;
+			try {
+				var resp = JSON.parse(resptext);
+				respbody.value = JSON.stringify(resp, null, 4);
+			} catch (e) {
+				respbody.value = resptext;
+			}
+		} catch (e) {
+			respcode.innerHTML = "fail";
+			respbody.value = e;
+		}
+		respbody.style.width = respbody.scrollWidth + "px";
+		respbody.style.height = respbody.scrollHeight + "px";
+	}
+	//-->
+	</script>
+</head>
+<body>
+	<input type="text" id="requrl" value="http://127.0.0.1:8000/" required><br>
+	<input type="text" id="reqtype" value="GET" required><br>
+	<textarea id="reqbody"></textarea><br>
+	<button onclick="issue()">Issue</button><br>
+	<span id="respcode"></span><br>
+	<textarea id="respbody"></textarea>
+</body>
+</html>
