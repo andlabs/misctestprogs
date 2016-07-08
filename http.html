@@ -11,6 +11,8 @@
 	function issue() {
 		var requrl = byid("requrl");
 		var reqtype = byid("reqtype");
+		var reqbearer = byid("reqbearer");
+		var reqctype = byid("reqctype");
 		var reqbody = byid("reqbody");
 		var respcode = byid("respcode");
 		var respbody = byid("respbody");
@@ -18,7 +20,9 @@
 		try {
 			var req = new XMLHttpRequest();
 			req.open(reqtype.value, requrl.value, false);
-			req.setRequestHeader("Content-Type", "application/json");
+			req.setRequestHeader("Content-Type", reqctype.value);
+			if (reqbearer.value != "")
+				req.setRequestHeader("Authorization", "Bearer " + reqbearer.value);
 			req.send(reqbody.value);
 			respcode.innerHTML = req.status;
 			var resptext = req.responseText;
@@ -41,6 +45,8 @@
 <body>
 	<input type="text" id="requrl" value="http://127.0.0.1:8000/" required><br>
 	<input type="text" id="reqtype" value="GET" required><br>
+	<input type="text" id="reqbearer" value=""><br>
+	<input type="text" id="reqctype" value="application/json"><br>
 	<textarea id="reqbody"></textarea><br>
 	<button onclick="issue()">Issue</button><br>
 	<span id="respcode"></span><br>
