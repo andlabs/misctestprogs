@@ -14,6 +14,7 @@
 		var reqbearer = byid("reqbearer");
 		var reqctype = byid("reqctype");
 		var reqbody = byid("reqbody");
+		var reqcrlf = byid("reqcrlf");
 		var respcode = byid("respcode");
 		var respbody = byid("respbody");
 
@@ -23,7 +24,10 @@
 			req.setRequestHeader("Content-Type", reqctype.value);
 			if (reqbearer.value != "")
 				req.setRequestHeader("Authorization", "Bearer " + reqbearer.value);
-			req.send(reqbody.value);
+			var value = reqbody.value;
+			if (reqcrlf.checked)
+				value = value.replace(/\n/g, "\r\n");
+			req.send(value);
 			respcode.innerHTML = req.status;
 			var resptext = req.responseText;
 			try {
@@ -48,6 +52,7 @@
 	<input type="text" id="reqbearer" value=""><br>
 	<input type="text" id="reqctype" value="application/json"><br>
 	<textarea id="reqbody"></textarea><br>
+	<input type="checkbox" id="reqcrlf" value="">CR/LF<br>
 	<button onclick="issue()">Issue</button><br>
 	<span id="respcode"></span><br>
 	<textarea id="respbody"></textarea>
