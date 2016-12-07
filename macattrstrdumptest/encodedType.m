@@ -244,27 +244,334 @@ REGISTER
 
 @end
 
-/*
-class ArrayType : DecodedType {
-	private var elem: DecodedType
-	private var count: UIntMax = 0
-	
-	public var String: String {
-		get {
-			return self.elem.String + "[\(self.count)]"
+DECODED(ArrayType) {
+	unsigned long long count;
+	id<DecodedType> elem;
+	NSUInteger size;
+	NSUInteger alignment;
+}
+
+REGISTER
+
++ (BOOL)process:(const char *)encoded count:(unsigned long long *)c elem:(id<DecodedType> *)e size:(NSUInteger *)s alignment:(NSUInteger *)a next:(const char **)next
+{
+	if (*encoded != '[')
+		return NO;
+	encoded++;
+	if (*encoded < '0' || *encoded > '9')
+		return NO;
+	*c = strtoull(encoded, next, 10);
+	encoded = *next;
+	*e = decodeType(encoded, next);
+	if ([*e isKindOfClass:[InvalidType class]]) {
+		[*e release];
+		*e = nil;
+		return NO;
+	}
+	NSGetSizeAndAlignment(encoded, s, a);
+	encoded = *next;
+	if (*encoded != ']') {
+		[*e release];
+		*e = nil;
+		return NO;
+	}
+	encoded++;
+	*next = encoded;
+	return YES;
+}
+
++ (BOOL)decodes:(const char *)encoded
+{
+	BOOL ret;
+	unsigned long long c;
+	id<DecodedType> e = nil;
+	const char *next;
+	NSUInteger s, a;
+
+	ret = [self process:encoded count:&c elem:&e size:&s alignment:&a next:&next];
+	if (e != nil)
+		[e release];
+	return ret;
+}
+
+- (id)init:(const char *)encoded next:(const char **)next
+{
+	self = [super init];
+	if (self)
+		[ArrayType process:encoded
+			count:&(self->count)
+			elem:&(self->elem)
+			size:&(self->size)
+			alignment:&(self->alignment)
+			next:next];
+	return self;
+}
+
+- (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent
+{
+	ptrdiff_t off;
+	uint8_t *base = (uint8_t *) obj;
+
+	off = ivar_getOffset(ivar);
+	base += off;
+	[self dump:base indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
+{
+	unsigned long long i, n;
+	uint8_t *p = (uint8_t *) val;
+
+	printf("array(%llu) [\n", self->count);
+	indent++;
+
+	n = self->count;
+	if (n == 0) {
+		// override for zero-length trailing dynamic arrays
+		n = 5;
+	}
+	for (i = 0; i < n; i++) {
+		printf("%*s", indent, "");
+		[self->elem dump:p indent:indent];
+		printf(",\n");
+		p += self->alignment;
+	}
+
+	indent--;
+	printf("%*s]", indent, "");
+}
+
+@end
+
+DECODED(StructUnionType) {
+	BOOL isUnion;
+	NSString *name;
+	NSMutableArray *elemNames;
+	NSMutableArray *elemTypes;
+	NSMutableArray *elemSizes;
+	NSMutableArray *elemAlignments;
+}
+
+REGISTER
+
++ (BOOL)prepare:(const char *)encoded
+isUnion:(BOOL *)iu
+name:(NSString **)nm
+elemNames:(NSMutableArray **)enames
+elemTypes:(NSMutableArray **)etypes
+elemSizes:(NSMutableArray **)esizes
+elemAlignments:(NSMutableArray **)ealigns
+next:(const char **)next
+{
+	char closing;
+
+	*nm = nil;
+	*enames = nil;
+	*etypes = nil;
+	*esizes = nil;
+	*ealigns = nil;
+
+	switch (*encoded) {
+	case '{':
+		*iu = NO;
+		closing = '}';
+		break;
+	case '(':
+		*iu = YES;
+		closing = ')';
+		break;
+	default:
+		goto fail;
+	}
+	encoded++;
+	if (*encoded == '?') {
+		*nm = nil;
+		encoded++;
+		if (*encoded != '=')
+			goto fail;
+	} else {
+		const char *end;
+
+		for (end = encoded; *end != '\0' && *end != '='; end++)
+			;
+		if (*end == '\0')
+			goto fail;
+		*nm = [[NSString alloc] initWithBytes:encoded
+			length:(end - encoded)
+			encoding:NSUTF8StringEncoding];
+		encoded = end;
+	}
+	encoded++;
+
+	*enames = [NSMutableArray new];
+	*etypes = [NSMutableArray new];
+	*esizes = [NSMutableArray new];
+	*ealigns = [NSMutableArray new];
+	while (*encoded != '\0' && *encoded != closing) {
+		NSString *fn;
+		id<DecodedType> dt;
+		NSUInteger esize, ealign;
+
+		if (*encoded == '"') {
+			const char *end;
+
+			for (end = encoded; *end != '\0' && *end != '"'; end++)
+				;
+			if (*end == '\0')
+				goto fail;
+			if (end == encoded)		// empty string
+				fn = [@"_" copy];
+			else
+				fn = [[NSString alloc] initWithBytes:encoded
+					length:(end - encoded)
+					encoding:NSUTF8StringEncoding];
+			encoded = end;
+			encoded++;
+		} else
+			fn = [@"_" copy];
+		[*enames addObject:fn];
+		[fn release];
+
+		dt = decodeType(encoded, next);
+		if ([dt isKindOfClass:[InvalidType class]]) {
+			[dt release];
+			goto fail;
+		}
+		NSGetSizeAndAlignment(encoded, &esize, &ealign);
+		encoded = *next;
+		[*etypes addObject:dt];
+		[dt release];
+		[*esizes addObject:[NSNumber numberWithUnsignedInteger:esize]];
+		[*ealigns addObject:[NSNumber numberWithUnsignedInteger:ealign]];
+	}
+
+	if (*encoded == closing) {
+		encoded++;
+		*next = encoded;
+		return YES;
+	}
+	// otherwise fall through
+
+fail:
+	if (*ealigns != nil) {
+		[*ealigns release];
+		*ealigns = nil;
+	}
+	if (*esizes != nil) {
+		[*esizes release];
+		*esizes = nil;
+	}
+	if (*etypes != nil) {
+		[*etypes release];
+		*etypes = nil;
+	}
+	if (*enames != nil) {
+		[*enames release];
+		*enames = nil;
+	}
+	if (*nm != nil) {
+		[*nm release];
+		*nm = nil;
+	}
+	return NO;
+}
+
++ (BOOL)decodes:(const char *)encoded
+{
+	BOOL ret, iu;
+	NSString *n;
+	NSMutableArray *en, *et, *es, *ea;
+	const char *next;
+
+	ret = [StructUnionType prepare:encoded
+		isUnion:&iu
+		name:&n
+		elemNames:&en
+		elemTypes:&et
+		elemSizes:&es
+		elemAlignments:&ea
+		next:&next];
+	if (ret) {
+		[ea release];
+		[es release];
+		[et release];
+		[en release];
+		if (n != nil)
+			[n release];
+	}
+	return ret;
+}
+
+- (id)init:(const char *)encoded next:(const char **)next
+{
+	self = [super init];
+	if (self)
+		[StructUnionType prepare:encoded
+			isUnion:&(self->isUnion)
+			name:&(self->name)
+			elemNames:&(self->elemNames)
+			elemTypes:&(self->elemTypes)
+			elemSizes:&(self->elemSizes)
+			elemAlignments:&(self->elemAlignments)
+			next:next];
+	return self;
+}
+
+- (void)dealloc
+{
+	[self->elemAlignments release];
+	[self->elemSizes release];
+	[self->elemTypes release];
+	[self->elemNames release];
+	if (self->name != nil)
+		[self->name release];
+	[super dealloc];
+}
+
+- (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent
+{
+	ptrdiff_t off;
+	uint8_t *base = (uint8_t *) obj;
+
+	off = ivar_getOffset(ivar);
+	base += off;
+	[self dump:base indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
+{
+	NSUInteger i, n;
+	uint8_t *p = (uint8_t *) val;
+
+	printf("struct ");
+	if (self->name != nil)
+		printf("%s ", [self->name UTF8String]);
+	printf("{\n");
+	indent++;
+
+	n = [self->elemNames count];
+	for (i = 0; i < n; i++) {
+		NSString *nam;
+		id<DecodedType> dt;
+
+		printf("%*s", indent, "");
+
+		nam = (NSString *) [self->elemNames objectAtIndex:i];
+		printf("%s ", [nam UTF8String]);
+		dt = (id<DecodedType>) [self->elemTypes objectAtIndex:i];
+		[dt dump:p indent:indent];
+		printf("\n");
+
+		if (!self->isUnion) {
+			NSNumber *num;
+
+			num = (NSNumber *) [self->elemAlignments objectAtIndex:i];
+			p += [num unsignedIntegerValue];
 		}
 	}
-	
-	public static func Decodes(_ encoded: String) -> Bool {
-		return firstChar(encoded) == "[" &&
-			encoded.characters.count >= 4
-		// TODO also look for the ]? and the number?
-	}
-	
-	public required init(_ encoded: String) {
-		var e2 = restOfString(encoded)
-		e2 = swallowNumber(e2, &self.count)
-		self.elem = decodeEncodedType(e2)
-	}
+
+	indent--;
+	printf("%*s}", indent, "");
 }
-*/
+
+@end
