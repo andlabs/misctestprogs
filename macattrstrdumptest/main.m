@@ -3,13 +3,17 @@
 #import <objc/objc-runtime.h>
 #import <stdio.h>
 
-void dumpIvar(id s)
+void dumpIvar(id s, int indent)
 {
 	Class class;
 
+	printf("[\n");
 	for (class = object_getClass(s); class != Nil; class = class_getSuperclass(class)) {
 		Ivar *ivars;
 		unsigned int i, n;
+
+		indent++;
+		printf("%*s%s {\n", indent, "", class_getName(class));
 
 		ivars = class_copyIvarList(class, &n);
 		for (i = 0; i < n; i++) {
@@ -18,6 +22,9 @@ void dumpIvar(id s)
 			const char *enc;
 
 			name = ivar_getName(ivar);
+			indent++;
+			printf("%*s%s ", indent, "", name);
+
 			enc = ivar_getTypeEncoding(ivar);
 /*
 			var decoded = decodeEncodedType(typ)
@@ -28,7 +35,7 @@ void dumpIvar(id s)
 			}
 			let val = object_getIvar(s, ivar)
 */
-			printf("%s: %s\n", name, enc);
+			printf("%s\n", enc);
 /*
 			if let realval = val {
 				print("[")
@@ -36,9 +43,15 @@ void dumpIvar(id s)
 				print("]")
 			}
 */
+
+			indent--;
 		}
 		free(ivars);
+
+		printf("%*s}\n", indent, "");
+		indent--;
 	}
+	printf("%*s]\n", indent, "");
 }
 
 static void toplist(id s)
@@ -82,7 +95,7 @@ int main(void)
 	printf("--\n");
 	toplist(s);
 	printf("--\n");
-	dumpIvar(s);
+	dumpIvar(s, 0);
 
 	printf("==\n");
 
@@ -93,7 +106,7 @@ int main(void)
 	printf("--\n");
 	toplist(s);
 	printf("--\n");
-	dumpIvar(s);
+	dumpIvar(s, 0);
 
 	[s release];
 	return 0;
