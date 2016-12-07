@@ -9,6 +9,7 @@
 + (BOOL)decodes:(const char *)encoded;
 - (id)init:(const char *)encoded next:(const char **)next;
 - (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent;
+- (void)dump:(void *)val indent:(int)indent;
 @end
 
 #define DECODED(name) @interface name : NSObject<DecodedType> \
@@ -35,6 +36,11 @@ DECODED(InvalidType) {
 }
 
 - (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent
+{
+	[self dump:NULL indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
 {
 	printf("%*s(invalid type %s)", indent, "", self->e);
 }
@@ -135,8 +141,18 @@ REGISTER
 
 	off = ivar_getOffset(ivar);
 	base += off;
+	// on 64-bit, isa is mangled
+	if (off == 0 && self->c == '#') {
+		printf("Class");
+		return;
+	}
+	[self dump:base indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
+{
 	switch (self->c) {
-#define C(ch, type, fmt) case ch: printf("%s = " fmt, #type, *((type *) base)); break;
+#define C(ch, type, fmt) case ch: printf("%s = " fmt, #type, *((type *) val)); break;
 	C('c', char, "0x%02hhX")
 	C('i', int, "%d")
 	C('s', short, "%hd")
@@ -149,14 +165,13 @@ REGISTER
 	// TODO cap at 32 bits?
 	C('L', unsigned long, "%lu")
 	C('Q', unsigned long long, "%llu")
-	case 'f': printf("float = %g", (double) (*((float *) base))); break;
+	case 'f': printf("float = %g", (double) (*((float *) val))); break;
 	C('d', double, "%g")
-	case 'b': printf("_Bool = %d", (int) (*((_Bool *) base))); break;
+	case 'b': printf("_Bool = %d", (int) (*((_Bool *) val))); break;
 	case 'v': printf("void"); break;
 	C('*', char *, "%s")
-	// note that on 64-bit systems isa is mangled
-	case '#': if (off == 0) printf("Class"); else printf("Class = %s", [NSStringFromClass(*((Class *) base)) UTF8String]); break;
-	case ':': printf("SEL = %s", [NSStringFromSelector(*((SEL *) base)) UTF8String]); break;
+	case '#': printf("Class = %s", [NSStringFromClass(*((Class *) val)) UTF8String]); break;
+	case ':': printf("SEL = %s", [NSStringFromSelector(*((SEL *) val)) UTF8String]); break;
 #undef C
 	}
 }
@@ -206,18 +221,25 @@ REGISTER
 
 - (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent
 {
-	const char *tn;
 	id val;
+
+	val = object_getIvar(obj, ivar);
+	[self dump:((void *) val) indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
+{
+	const char *tn;
+	id obj = (id) val;
 
 	tn = "id";
 	if (self->typename != nil)
 		tn = [self->typename UTF8String];
 	printf("%s ", tn);
-	val = object_getIvar(obj, ivar);
-	if (val == nil)
+	if (obj == nil)
 		printf("= nil");
 	else
-		dumpIvar(val, indent);
+		dumpIvar(obj, indent);
 }
 
 @end
