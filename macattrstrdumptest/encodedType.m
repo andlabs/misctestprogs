@@ -42,7 +42,7 @@ DECODED(InvalidType) {
 
 - (void)dump:(void *)val indent:(int)indent
 {
-	printf("%*s(invalid type %s)", indent, "", self->e);
+	printf("(invalid type %s)", self->e);
 }
 
 @end
@@ -72,9 +72,31 @@ static id<DecodedType> decodeType(const char *encoded, const char **next)
 	return [[InvalidType alloc] init:encoded next:next];
 }
 
+static jmp_buf segvjmp;
+
+static void dumpSEGV(int sig)
+{
+	longjmp(segvjmp, 1);
+}
+
+#define permissive 0
+
 void dumpIvar(id s, int indent)
 {
 	Class class;
+	int origIndent = indent;
+#if permissive
+	void (*prevSignal)(int);
+	jmp_buf prevjb;
+
+	prevSignal = signal(SIGSEGV, dumpSEGV);
+	memmove(prevjb, segvjmp, sizeof (jmp_buf));
+	if (setjmp(segvjmp) != 0) {
+		printf("\n** fail\n");
+		indent = origIndent;
+		goto bail;
+	}
+#endif
 
 	printf("[\n");
 	for (class = object_getClass(s); class != Nil; class = class_getSuperclass(class)) {
@@ -109,9 +131,14 @@ void dumpIvar(id s, int indent)
 		printf("%*s}\n", indent, "");
 		indent--;
 	}
-	printf("%*s]\n", indent, "");
-}
 
+bail:
+	printf("%*s]\n", indent, "");
+#if permissive
+	memmove(segvjmp, prevjb, sizeof (jmp_buf));
+	signal(SIGSEGV, prevSignal);
+#endif
+}
 
 DECODED(BasicType) {
 	char c;
@@ -224,14 +251,15 @@ REGISTER
 	id val;
 
 	val = object_getIvar(obj, ivar);
-	[self dump:((void *) val) indent:indent];
+	[self dump:&val indent:indent];
 }
 
 - (void)dump:(void *)val indent:(int)indent
 {
 	const char *tn;
-	id obj = (id) val;
+	id obj;
 
+	obj = *((id *) val);
 	tn = "id";
 	if (self->typename != nil)
 		tn = [self->typename UTF8String];
@@ -354,14 +382,7 @@ DECODED(StructUnionType) {
 
 REGISTER
 
-+ (BOOL)prepare:(const char *)encoded
-isUnion:(BOOL *)iu
-name:(NSString **)nm
-elemNames:(NSMutableArray **)enames
-elemTypes:(NSMutableArray **)etypes
-elemSizes:(NSMutableArray **)esizes
-elemAlignments:(NSMutableArray **)ealigns
-next:(const char **)next
++ (BOOL)prepare:(const char *)encoded isUnion:(BOOL *)iu name:(NSString **)nm elemNames:(NSMutableArray **)enames elemTypes:(NSMutableArray **)etypes elemSizes:(NSMutableArray **)esizes elemAlignments:(NSMutableArray **)ealigns next:(const char **)next
 {
 	char closing;
 
@@ -415,6 +436,7 @@ next:(const char **)next
 		if (*encoded == '"') {
 			const char *end;
 
+			encoded++;
 			for (end = encoded; *end != '\0' && *end != '"'; end++)
 				;
 			if (*end == '\0')
@@ -483,7 +505,7 @@ fail:
 	NSMutableArray *en, *et, *es, *ea;
 	const char *next;
 
-	ret = [StructUnionType prepare:encoded
+	ret = [self prepare:encoded
 		isUnion:&iu
 		name:&n
 		elemNames:&en
@@ -572,6 +594,130 @@ fail:
 
 	indent--;
 	printf("%*s}", indent, "");
+}
+
+@end
+
+DECODED(BitsType) {
+	unsigned long long n;
+}
+
+REGISTER
+
++ (BOOL)prepare:(const char *)encoded n:(unsigned long long *)nn next:(const char **)next
+{
+	if (*encoded != 'b')
+		return NO;
+	encoded++;
+	if (*encoded < '0' || *encoded > '9')
+		return NO;
+	*nn = strtoull(encoded, next, 10);
+	return YES;
+}
+
++ (BOOL)decodes:(const char *)encoded
+{
+	unsigned long long nn;
+	const char *next;
+
+	return [self prepare:encoded n:&nn next:&next];
+}
+
+- (id)init:(const char *)encoded next:(const char **)next
+{
+	self = [super init];
+	if (self)
+		[BitsType prepare:encoded n:&(self->n) next:next];
+	return self;
+}
+
+- (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent
+{
+	ptrdiff_t off;
+	uint8_t *base = (uint8_t *) obj;
+
+	off = ivar_getOffset(ivar);
+	base += off;
+	[self dump:base indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
+{
+	// TODO
+	printf("bits(%llu)", self->n);
+}
+
+@end
+
+DECODED(PointerType) {
+	id<DecodedType> elem;
+}
+
+REGISTER
+
++ (BOOL)prepare:(const char *)encoded elem:(id<DecodedType> *)et next:(const char **)next
+{
+	*et = nil;
+	if (*encoded != '^')
+		return NO;
+	encoded++;
+	*et = decodeType(encoded, next);
+	if ([*et isKindOfClass:[InvalidType class]]) {
+		[*et release];
+		*et = nil;
+		return NO;
+	}
+	return YES;
+}
+
++ (BOOL)decodes:(const char *)encoded
+{
+	BOOL ret;
+	id<DecodedType> dt;
+	const char *next;
+
+	ret = [self prepare:encoded elem:&dt next:&next];
+	if (dt != nil)
+		[dt release];
+	return ret;
+}
+
+- (id)init:(const char *)encoded next:(const char **)next
+{
+	self = [super init];
+	if (self)
+		[PointerType prepare:encoded elem:&(self->elem) next:next];
+	return self;
+}
+
+- (void)dealloc
+{
+	[self->elem release];
+	[super dealloc];
+}
+
+- (void)dump:(id)obj ivar:(Ivar)ivar indent:(int)indent
+{
+	ptrdiff_t off;
+	uint8_t *base = (uint8_t *) obj;
+
+	off = ivar_getOffset(ivar);
+	base += off;
+	[self dump:base indent:indent];
+}
+
+- (void)dump:(void *)val indent:(int)indent
+{
+	uintptr_t *p = (uintptr_t *) val;
+	uintptr_t addr;
+
+	printf("pointer = ");
+	addr = *p;
+	if (addr == 0) {
+		printf("NULL");
+		return;
+	}
+	[self->elem dump:((void *) addr) indent:indent];
 }
 
 @end
