@@ -5,6 +5,33 @@
 #import <stdlib.h>
 #import <string.h>
 
+// because NSGetSizeAndAlignment() does not handle bit fields
+static const char *safeGetSizeAndAlignment(const char *typePtr, NSUInteger *sizep, NSUInteger *alignp)
+{
+	unsigned long long n;
+	NSUInteger size;
+	BOOL manual;
+
+	manual = YES;
+	if (*typePtr != 'b')
+		manual = NO;
+	else if (typePtr[1] < '0' || typePtr[1] > '9')
+		// pass invalid b sequencies to the real function so an exception can be thrown
+		manual = NO;
+	if (!manual)
+		return NSGetSizeAndAlignment(typePtr, sizep, alignp);
+	typePtr++;
+	n = strtoull(typePtr, &typePtr, 10);
+	size = n / 8;
+	if (n % 8 != 0)
+		size++;
+	if (sizep != NULL)
+		*sizep = size;
+	if (alignp != NULL)
+		*alignp = size;
+	return typePtr;
+}
+
 @protocol DecodedType<NSObject>
 + (BOOL)decodes:(const char *)encoded;
 - (id)init:(const char *)encoded next:(const char **)next;
@@ -72,14 +99,16 @@ static id<DecodedType> decodeType(const char *encoded, const char **next)
 	return [[InvalidType alloc] init:encoded next:next];
 }
 
+#define permissive 0
+
+#if permissive
 static jmp_buf segvjmp;
 
 static void dumpSEGV(int sig)
 {
 	longjmp(segvjmp, 1);
 }
-
-#define permissive 0
+#endif
 
 void dumpIvar(id s, int indent)
 {
@@ -116,7 +145,7 @@ void dumpIvar(id s, int indent)
 
 			name = ivar_getName(ivar);
 			indent++;
-			printf("%*s%s ", indent, "", name);
+			printf("%*s%s: ", indent, "", name);
 
 			enc = ivar_getTypeEncoding(ivar);
 			decoded = decodeType(enc, &next);
@@ -133,7 +162,7 @@ void dumpIvar(id s, int indent)
 	}
 
 bail:
-	printf("%*s]\n", indent, "");
+	printf("%*s]", indent, "");
 #if permissive
 	memmove(segvjmp, prevjb, sizeof (jmp_buf));
 	signal(SIGSEGV, prevSignal);
@@ -263,7 +292,7 @@ REGISTER
 	tn = "id";
 	if (self->typename != nil)
 		tn = [self->typename UTF8String];
-	printf("%s ", tn);
+	printf("object(%s) ", tn);
 	if (obj == nil)
 		printf("= nil");
 	else
@@ -296,7 +325,7 @@ REGISTER
 		*e = nil;
 		return NO;
 	}
-	NSGetSizeAndAlignment(encoded, s, a);
+	safeGetSizeAndAlignment(encoded, s, a);
 	encoded = *next;
 	if (*encoded != ']') {
 		[*e release];
@@ -459,7 +488,7 @@ REGISTER
 			[dt release];
 			goto fail;
 		}
-		NSGetSizeAndAlignment(encoded, &esize, &ealign);
+		safeGetSizeAndAlignment(encoded, &esize, &ealign);
 		encoded = *next;
 		[*etypes addObject:dt];
 		[dt release];
@@ -565,7 +594,10 @@ fail:
 	NSUInteger i, n;
 	uint8_t *p = (uint8_t *) val;
 
-	printf("struct ");
+	if (self->isUnion)
+		printf("union ");
+	else
+		printf("struct ");
 	if (self->name != nil)
 		printf("%s ", [self->name UTF8String]);
 	printf("{\n");
@@ -579,7 +611,7 @@ fail:
 		printf("%*s", indent, "");
 
 		nam = (NSString *) [self->elemNames objectAtIndex:i];
-		printf("%s ", [nam UTF8String]);
+		printf("%s: ", [nam UTF8String]);
 		dt = (id<DecodedType>) [self->elemTypes objectAtIndex:i];
 		[dt dump:p indent:indent];
 		printf("\n");
