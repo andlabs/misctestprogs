@@ -48,7 +48,7 @@ int main(void)
 	printf("--\n");
 	dumpIvar(s, 0);
 
-	printf("==\n");
+	printf("\n==\n");
 
 	[s addAttributes:@{
 		NSForegroundColorAttributeName:		[NSColor controlHighlightColor],
@@ -58,6 +58,7 @@ int main(void)
 	toplist(s);
 	printf("--\n");
 	dumpIvar(s, 0);
+	printf("\n");
 
 	[s release];
 	return 0;

@@ -127,7 +127,11 @@ void dumpIvar(id s, int indent)
 	}
 #endif
 
-	printf("[\n");
+	// __NSAtom returns self for -description, which will crash if self just happens to be 0x1
+	if (strcmp(class_getName(object_getClass(s)), "__NSAtom") != 0)
+		printf("desc(%s) ", [[[s description] stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"] UTF8String]);
+
+	printf("[\n", [[s description] UTF8String]);
 	for (class = object_getClass(s); class != Nil; class = class_getSuperclass(class)) {
 		Ivar *ivars;
 		unsigned int i, n;
