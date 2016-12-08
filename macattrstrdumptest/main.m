@@ -58,6 +58,18 @@ int main(void)
 	toplist(s);
 	printf("--\n");
 	dumpIvar(s, 0);
+
+	printf("\n==\n");
+
+	[s addAttributes:@{
+		NSForegroundColorAttributeName:		[NSColor purpleColor],
+	} range:NSMakeRange(1, 1)];
+	printf("%s\n", [[s description] UTF8String]);
+	printf("--\n");
+	toplist(s);
+	printf("--\n");
+	dumpIvar(s, 0);
+
 	printf("\n");
 
 	[s release];
