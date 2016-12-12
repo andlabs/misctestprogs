@@ -55,47 +55,113 @@
 
 #define HR(call) printf("%s -> 0x%I32X\n", #call, call)
 
+struct metrics {
+	RECT windowRect;
+	MARGINS resizeFrameInsets;
+	MARGINS nonclientInsets;
+	MARGINS realNonclientInsets;
+	RECT effectiveClientRect;
+	RECT relativeClientRect;
+};
+
 // TODO this is incorrect when maximized
-MARGINS computeMargins(HWND hwnd)
+void getMetrics(HWND hwnd, struct metrics *m)
 {
 	RECT r;
-	MARGINS m;
 
+	GetWindowRect(hwnd, &(m->windowRect));
+
+	// get the margins of the resize frame
+	ZeroMemory(&r, sizeof (RECT));
+	AdjustWindowRectEx(&r,
+		GetWindowStyle(hwnd) & ~WS_CAPTION,
+		FALSE,
+		GetWindowExStyle(hwnd));
+	m->resizeFrameInsets.cxLeftWidth = -r.left;
+	m->resizeFrameInsets.cyTopHeight = -r.top;
+	m->resizeFrameInsets.cxRightWidth = r.right;
+	m->resizeFrameInsets.cyBottomHeight = r.bottom;
+
+	// get non-client insets
 	ZeroMemory(&r, sizeof (RECT));
 	AdjustWindowRectEx(&r,
 		GetWindowStyle(hwnd),
 		FALSE,
 		GetWindowExStyle(hwnd));
+	m->nonclientInsets.cxLeftWidth = -r.left;
+	m->nonclientInsets.cyTopHeight = -r.top;
+	m->nonclientInsets.cxRightWidth = r.right;
+	m->nonclientInsets.cyBottomHeight = r.bottom;
 
-	ZeroMemory(&m, sizeof (MARGINS));
-	m.cxLeftWidth = abs(r.left);
-	m.cxRightWidth = r.right;
-	// give it 2.5x the room so we can shove stuff in there
-	m.cyTopHeight = abs(r.top) * 2.5;
-	m.cyBottomHeight = r.bottom;
-	return m;
+	// give the top 2.5x the room so we can shove stuff in there
+	m->realNonclientInsets = m->nonclientInsets;
+	m->realNonclientInsets.cyTopHeight *= 2.5;
+
+	// compute the effective client rect
+	m->effectiveClientRect = m->windowRect;
+	m->effectiveClientRect.left += m->realNonclientInsets.cxLeftWidth;
+	m->effectiveClientRect.top += m->realNonclientInsets.cyTopHeight;
+	m->effectiveClientRect.right -= m->realNonclientInsets.cxRightWidth;
+	m->effectiveClientRect.bottom -= m->realNonclientInsets.cyBottomHeight;
+
+	// and compute it relative to the window's real client rect
+	m->relativeClientRect = m->effectiveClientRect;
+	MapWindowRect(NULL, hwnd, &(m->relativeClientRect));
 }
+
+HWND rebarHost;
+HWND rebar;
 
 LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	RECT r;
-	MARGINS margins;
+	struct metrics m;
+	HDC dc;
+	PAINTSTRUCT ps;
 	BOOL dwmHandled;
 	LRESULT lResult;
 
 	dwmHandled = DwmDefWindowProc(hwnd, uMsg, wParam, lParam, &lResult);
+	getMetrics(hwnd, &m);
 	switch (uMsg) {
 	case WM_CREATE:
-		GetWindowRect(hwnd, &r);
 		SetWindowPos(hwnd, NULL,
-			r.left, r.top,
-			r.right - r.left, r.bottom - r.top,
+			m.windowRect.left, m.windowRect.top,
+			m.windowRect.right - m.windowRect.left, m.windowRect.bottom - m.windowRect.top,
 			SWP_FRAMECHANGED);
 		// TODO if we pass SWP_NOOWNERZORDER || SWP_NOZORDER, the default frame is not correctly inhibited
+
+		rebarHost = CreateWindowExW(0,
+			L"rebarHost", L"",
+			WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+			m.realNonclientInsets.cxLeftWidth,
+			m.nonclientInsets.cyTopHeight,
+			m.windowRect.right - m.windowRect.left -
+				m.realNonclientInsets.cxLeftWidth - m.realNonclientInsets.cxRightWidth,
+			m.realNonclientInsets.cyTopHeight - m.nonclientInsets.cyTopHeight,
+			hwnd, NULL, GetModuleHandle(NULL), NULL);
+
+		rebar = CreateWindowExW(0,
+			REBARCLASSNAMEW, L"",
+			WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | RBS_VARHEIGHT | CCS_NODIVIDER,
+			0, 0, 0, 0,
+			rebarHost, NULL, GetModuleHandle(NULL), NULL);
+
+		{
+			REBARBANDINFOW rb;
+
+			ZeroMemory(&rb, sizeof (REBARBANDINFOW));
+			rb.cbSize = sizeof (REBARBANDINFOW);
+			rb.fMask = RBBIM_TEXT;
+			rb.lpText = L"This is a rebar";
+			HR((HRESULT) SendMessageW(rebar, RB_INSERTBANDW, (WPARAM) (-1), (LPARAM) (&rb)));
+		}
+
+		SendMessageW(rebar, RB_SETWINDOWTHEME, 0,
+			(LPARAM) L"NavbarComposited");
+
 		break;
 	case WM_ACTIVATE:
-		margins = computeMargins(hwnd);
-		HR(DwmExtendFrameIntoClientArea(hwnd, &margins));
+		HR(DwmExtendFrameIntoClientArea(hwnd, &(m.realNonclientInsets)));
 		break;
 	case WM_NCCALCSIZE:
 		if (wParam != (WPARAM) FALSE)
@@ -106,29 +172,18 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			return lResult;
 		// DWM did not handle it; we have to do it ourselves
 		{
-			RECT r, frame;
 			POINT p;
-			MARGINS m;
 
 			p.x = GET_X_LPARAM(lParam);
 			p.y = GET_Y_LPARAM(lParam);
-			GetWindowRect(hwnd, &r);
-
-			ZeroMemory(&frame, sizeof (RECT));
-			AdjustWindowRectEx(&frame,
-				GetWindowStyle(hwnd) & ~WS_CAPTION,
-				FALSE,
-				GetWindowExStyle(hwnd));
-
-			m = computeMargins(hwnd);
 
 			lResult = HTNOWHERE;
-			if (p.y >= r.top && p.y < (r.top + m.cyTopHeight))
+			if (p.y >= m.windowRect.top && p.y < (m.windowRect.top + m.resizeFrameInsets.cyTopHeight))
 				lResult = HTTOP;
-			else if (p.y >= (r.bottom - m.cyBottomHeight) && p.y < r.bottom)
+			else if (p.y >= m.effectiveClientRect.bottom && p.y < m.windowRect.bottom)
 				lResult = HTBOTTOM;
 
-			if (p.x >= r.left && p.x < (r.left + m.cxLeftWidth))
+			if (p.x >= m.windowRect.left && p.x < m.effectiveClientRect.left)
 				switch (lResult) {
 				case HTNOWHERE:
 					lResult = HTLEFT;
@@ -140,7 +195,7 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					lResult = HTBOTTOMLEFT;
 					break;
 				}
-			else if (p.x >= (r.right - m.cxRightWidth) && p.x < r.right)
+			else if (p.x >= m.effectiveClientRect.right && p.x < m.windowRect.right)
 				switch (lResult) {
 				case HTNOWHERE:
 					lResult = HTRIGHT;
@@ -153,14 +208,25 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					break;
 				}
 
-			if (lResult == HTTOP)
-				if (p.y >= (r.top - frame.top))
+			if (lResult == HTNOWHERE)
+				if (p.y >= (m.windowRect.top + m.resizeFrameInsets.cyTopHeight) && p.y < m.effectiveClientRect.top)
 					lResult = HTCAPTION;
 
 			if (lResult != HTNOWHERE)
 				return lResult;
 		}
 		// we can't handle it; give it to DefWindowProcW() and hope for the best
+		break;
+	case WM_SIZE:
+		// TODO this seems to be wrong when shrinking the size on the right or bottom edges
+		// TODO without this call, the WM_PAINT never fills new areas
+		// we may need to handle WM_WINDOWPOSCHANGED and compute new metrics from there
+		InvalidateRect(hwnd, &(m.relativeClientRect), FALSE);
+		break;
+	case WM_PAINT:
+		dc = BeginPaint(hwnd, &ps);
+		FillRect(dc, &(m.relativeClientRect), (HBRUSH) (COLOR_BTNFACE + 1));
+		EndPaint(hwnd, &ps);
 		break;
 	case WM_CLOSE:
 		PostQuitMessage(0);
@@ -173,13 +239,28 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 int main(void)
 {
+	INITCOMMONCONTROLSEX icc;
 	WNDCLASSW wc;
 	HWND mainwin;
 	MSG msg;
 
+	ZeroMemory(&icc, sizeof (INITCOMMONCONTROLSEX));
+	icc.dwSize = sizeof (INITCOMMONCONTROLSEX);
+	icc.dwICC = (ICC_LISTVIEW_CLASSES | ICC_TREEVIEW_CLASSES | ICC_BAR_CLASSES | ICC_TAB_CLASSES | ICC_UPDOWN_CLASS | ICC_PROGRESS_CLASS | ICC_HOTKEY_CLASS | ICC_ANIMATE_CLASS | ICC_WIN95_CLASSES | ICC_DATE_CLASSES | ICC_USEREX_CLASSES | ICC_COOL_CLASSES | ICC_INTERNET_CLASSES | ICC_PAGESCROLLER_CLASS | ICC_NATIVEFNTCTL_CLASS | ICC_STANDARD_CLASSES | ICC_LINK_CLASS);
+	InitCommonControlsEx(&icc);
+
 	ZeroMemory(&wc, sizeof (WNDCLASSW));
 	wc.lpszClassName = L"mainwin";
 	wc.lpfnWndProc = wndproc;
+	wc.hInstance = GetModuleHandle(NULL);
+	wc.hIcon = LoadIconW(NULL, IDI_APPLICATION);
+	wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
+	wc.hbrBackground = (HBRUSH) GetStockObject(BLACK_BRUSH);
+	RegisterClassW(&wc);
+
+	ZeroMemory(&wc, sizeof (WNDCLASSW));
+	wc.lpszClassName = L"rebarHost";
+	wc.lpfnWndProc = DefWindowProcW;
 	wc.hInstance = GetModuleHandle(NULL);
 	wc.hIcon = LoadIconW(NULL, IDI_APPLICATION);
 	wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
