@@ -107,6 +107,31 @@ void getMetrics(HWND hwnd, struct metrics *m)
 	// and compute it relative to the window's real client rect
 	m->relativeClientRect = m->effectiveClientRect;
 	MapWindowRect(NULL, hwnd, &(m->relativeClientRect));
+
+#if 0
+// for debugging
+printf("***\n");
+#define PRINTRECT(r) ((int)((r).left)), ((int)((r).top)), ((int)((r).right)), ((int)((r).bottom))
+printf("window rect %d %d %d %d\n", PRINTRECT(m->windowRect));
+	ZeroMemory(&r, sizeof (RECT));
+	AdjustWindowRectEx(&r,
+		GetWindowStyle(hwnd),
+		FALSE,
+		GetWindowExStyle(hwnd));
+r.left=-r.left;r.top=-r.top;
+printf("edge insets %d %d %d %d\n", PRINTRECT(r));
+HR(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof (RECT)));
+printf("DWMWA_EXTENDED_FRAME_BOUNDS %d %d %d %d\n", PRINTRECT(r));
+{HMODULE m;
+m=LoadLibraryW(L"kernel32.dll");
+if(m == NULL)printf("unknown os\n");
+// TODO this doesn't work; apparently the function is really in one of the api-ms-core* DLLs...
+else if(GetProcAddress(m,"VirtualAllocFromApp")!=NULL)printf("windows 10\n");
+else if(GetProcAddress(m,"GetPackageApplicationIds")!=NULL)printf("windows 8.1\n");
+else if(GetProcAddress(m,"GetSystemTimePreciseAsFileTime")!=NULL)printf("windows 8\n");
+else printf("windows 7\n");}
+printf("\n");
+#endif
 }
 
 HWND rebarHost;
