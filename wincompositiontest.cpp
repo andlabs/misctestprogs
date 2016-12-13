@@ -64,6 +64,8 @@ struct metrics {
 	RECT relativeClientRect;
 };
 
+BOOL defWindowProcFirst = TRUE;
+
 // TODO this is incorrect when maximized
 void getMetrics(HWND hwnd, struct metrics *m)
 {
@@ -92,6 +94,11 @@ void getMetrics(HWND hwnd, struct metrics *m)
 	m->nonclientInsets.cyTopHeight = -r.top;
 	m->nonclientInsets.cxRightWidth = r.right;
 	m->nonclientInsets.cyBottomHeight = r.bottom;
+	if (defWindowProcFirst) {
+		m->nonclientInsets.cxLeftWidth = 0;
+		m->nonclientInsets.cxRightWidth = 0;
+		m->nonclientInsets.cyBottomHeight = 0;
+	}
 
 	// give the top 2.5x the room so we can shove stuff in there
 	m->realNonclientInsets = m->nonclientInsets;
@@ -136,6 +143,33 @@ printf("\n");
 
 HWND rebarHost;
 HWND rebar;
+
+const char *htnames[] = {
+	"HTERROR",
+	"HTTRANSPARENT",
+	"HTNOWHERE",
+	"HTCLIENT",
+	"HTCAPTION",
+	"HTSYSMENU",
+	"HTGROWBOX",
+	"HTMENU",
+	"HTHSCROLL",
+	"HTVSCROLL",
+	"HTMINBUTTON",
+	"HTMAXBUTTON",
+	"HTLEFT",
+	"HTRIGHT",
+	"HTTOP",
+	"HTTOPLEFT",
+	"HTTOPRIGHT",
+	"HTBOTTOM",
+	"HTBOTTOMLEFT",
+	"HTBOTTOMRIGHT",
+	"HTBORDER",
+	"HTOBJECT",
+	"HTCLOSE",
+	"HTHELP",
+};
 
 LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -189,13 +223,34 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		HR(DwmExtendFrameIntoClientArea(hwnd, &(m.realNonclientInsets)));
 		break;
 	case WM_NCCALCSIZE:
-		if (wParam != (WPARAM) FALSE)
+		if (wParam != (WPARAM) FALSE) {
+			NCCALCSIZE_PARAMS *op = (NCCALCSIZE_PARAMS *) lParam;
+			NCCALCSIZE_PARAMS np;
+
+			if (!defWindowProcFirst)
+				return 0;
+			np = *op;
+			DefWindowProcW(hwnd, uMsg, wParam, (LPARAM) (&np));
+			printf("old %ld %ld %ld %ld\nnew %ld %ld %ld %ld\n",
+				op->rgrc[0].left, op->rgrc[0].top, op->rgrc[0].right, op->rgrc[0].bottom,
+				np.rgrc[0].left, np.rgrc[0].top, np.rgrc[0].right, np.rgrc[0].bottom);
+			op->rgrc[0].left = np.rgrc[0].left;
+			op->rgrc[0].right = np.rgrc[0].right;
+			op->rgrc[0].bottom = np.rgrc[0].bottom;
 			return 0;
+		}
 		break;
 	case WM_NCHITTEST:
 		if (dwmHandled)
 			return lResult;
 		// DWM did not handle it; we have to do it ourselves
+		if (defWindowProcFirst) {
+			lResult = DefWindowProcW(hwnd, uMsg, wParam, lParam);
+			if (lResult != HTCLIENT) {
+				printf("them %s\n", htnames[lResult + 2]);
+				return lResult;
+			}
+		}
 		{
 			POINT p;
 
@@ -237,6 +292,8 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 				if (p.y >= (m.windowRect.top + m.resizeFrameInsets.cyTopHeight) && p.y < m.effectiveClientRect.top)
 					lResult = HTCAPTION;
 
+			if (defWindowProcFirst)
+				printf("us %s\n", htnames[lResult + 2]);
 			if (lResult != HTNOWHERE)
 				return lResult;
 		}
