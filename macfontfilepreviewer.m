@@ -260,11 +260,20 @@ struct ctasset {
 {
 	struct ctasset *c;
 	CFIndex i, n;
+	CGContextRef cc;
 
+	cc = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
 	n = [self->fonts count];
 	c = self->curAssets;
 	for (i = 0; i < n; i++) {
 		[c->fontName drawAtPoint:c->expectedFontNameRect.origin];
+		CGContextSaveGState(cc);
+		CGContextTranslateCTM(cc, 0, [self frame].size.height);
+		CGContextScaleCTM(cc, 1.0, -1.0);
+		CGContextTranslateCTM(cc, c->expectedFrameRect.origin.x, [self frame].size.height - c->expectedFrameRect.origin.y - c->expectedFrameRect.size.height);
+		CGContextSetTextMatrix(cc, CGAffineTransformIdentity);
+		CTFrameDraw(c->frame, cc);
+		CGContextRestoreGState(cc);
 		c++;
 	}
 }
