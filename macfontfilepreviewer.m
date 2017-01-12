@@ -81,7 +81,72 @@ NSError *loadFonts(NSURL *dirURL, NSArray **fonts)
 
 NSApplication *app;
 
+@interface previewView : NSView<NSTextFieldDelegate> {
+	NSArray *fonts;
+	NSString *curString;
+	CGFloat size;
+}
+- (IBAction)sizeSliderChanged:(id)sender;
+@end
+
+@implementation previewView
+
+- (id)initWithFonts:(NSArray *)fonts
+{
+	self = [super initWithFrame:NSZeroRect];
+	if (self) {
+		self->fonts = fonts;
+		self->curString = [@"" copy];
+		self->size = 12;
+	}
+	return self;
+}
+
+- (void)dealloc
+{
+	NSValue *v;
+	CGFontRef cgfont;
+
+	[self->curString release];
+	for (v in self->fonts) {
+		cgfont = (CGFontRef) [v pointerValue];
+		CFRelease(cgfont);
+	}
+	[self->fonts release];
+	[super dealloc];
+}
+
+- (BOOL)isFlipped
+{
+	return YES;
+}
+
+- (void)drawRect:(NSRect)r
+{
+}
+
+- (void)resizeWithOldSuperviewSize:(NSSize)oldSize
+{
+	[super resizeWithOldSuperviewSize:oldSize];
+	[self recomputeFrameSize:[self frame].size.width];
+}
+
+- (void)controlTextDidChange:(NSNotification *)note
+{
+	NSTextField *textField;
+
+	textField = (NSTextField *) [note object];
+	// TODO
+}
+
+- (IBAction)sizeSliderChanged:(id)sender
+{
+}
+
+@end
+
 @interface appDelegate : NSObject<NSApplicationDelegate>
+- (void)openWindow:(NSArray *)fonts;
 @end
 
 @implementation appDelegate
@@ -109,8 +174,76 @@ NSApplication *app;
 		[app terminate:self];
 	}
 
-	NSLog(@"%ld", [fonts count]);
-	[app terminate:self];
+	[self openWindow:fonts];
+}
+
+- (void)openWindow:(NSArray *)fonts
+{
+	NSWindow *mainwin;
+	NSView *contentView;
+	NSTextField *textField;
+	NSSlider *sizeSlider;
+	NSScrollView *sv;
+	previewView *pv;
+
+	mainwin = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 640, 480)
+		styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
+		backing:NSBackingStoreBuffered
+		defer:YES];
+	contentView = [mainwin contentView];
+
+	pv = [[previewView alloc] initWithFonts:fonts];
+	[pv setAutoresizingMask:(NSViewWidthSizable | NSViewMinYMargin)];
+
+	sv = [[NSScrollView alloc] initWithFrame:NSZeroRect];
+	[sv setBackgroundColor:[NSColor colorWithCalibratedWhite:1.0 alpha:1.0]];
+	[sv setDrawsBackground:YES];
+	[sv setBorderType:NSBezelBorder];
+	[sv setAutohidesScrollers:YES];
+	[sv setHasHorizontalRuler:NO];
+	[sv setHasVerticalRuler:NO];
+	[sv setRulersVisible:NO];
+	[sv setScrollerKnobStyle:NSScrollerKnobStyleDefault];
+	[sv setScrollsDynamically:YES];
+	[sv setFindBarPosition:NSScrollViewFindBarPositionAboveContent];
+	[sv setUsesPredominantAxisScrolling:NO];
+	[sv setHorizontalScrollElasticity:NSScrollElasticityAutomatic];
+	[sv setVerticalScrollElasticity:NSScrollElasticityAutomatic];
+	[sv setAllowsMagnification:NO];
+	[sv setHasHorizontalScroller:NO];
+	[sv setHasVerticalScroller:YES];
+	[sv setDocumentView:pv];
+	[sv setTranslatesAutoresizingMaskIntoConstraints:NO];
+	[contentView addSubview:sv];
+
+	textField = [[NSTextField alloc] initWithFrame:NSZeroRect];
+	[textField setSelectable:YES];
+	[textField setFont:[NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSRegularControlSize]]];
+	[textField setBordered:NO];
+	[textField setBezelStyle:NSTextFieldSquareBezel];
+	[textField setBezeled:YES];
+	[[textField cell] setLineBreakMode:NSLineBreakByClipping];
+	[[textField cell] setScrollable:YES];
+	[textField setDelegate:pv];
+	[textField setTranslatesAutoresizingMaskIntoConstraints:NO];
+	[contentView addSubview:textField];
+
+	sizeSlider = [[NSlider alloc] initWithFrame:NSMakeRect(0, 0, 92, 2)];
+	[sizeSlider setMinValue:8];
+	[sizeSlider setMaxValue:288];
+	[sizeSlider setDoubeValue:12];
+	[sizeSlider setTarget:previewView];
+	[sizeSlider setAction:@selector(sizeSliderChanged:)];
+	[sizeSlider setTranslatesAutoresizingMaskIntoConstraints:NO];
+	[contentView addSubview:sizeSlider];
+
+	[mainwin center];
+	[mainwin makeKeyAndOrderFront:self];
+}
+
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app
+{
+	return YES;
 }
 
 @end
