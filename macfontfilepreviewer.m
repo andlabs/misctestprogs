@@ -51,21 +51,24 @@ NSError *walk(NSURL *dirURL, NSError *(^f)(NSURL *url))
 	return ret;
 }
 
-NSError *loadFonts(NSURL *dirURL, NSArray **fonts)
+NSError *loadFonts(NSURL *dirURL, NSArray **fonts, NSArray **fontURLs)
 {
-	__block NSMutableArray *out;
+	__block NSMutableArray *out, *outurls;
 	NSError *err;
 
 	*fonts = nil;
 	out = [NSMutableArray new];
+	outurls = [NSMutableArray new];
 	err = walk(dirURL, ^(NSURL *file) {
 		CGDataProviderRef dp;
 		CGFontRef cgfont;
 
 		dp = CGDataProviderCreateWithURL((CFURLRef) file);
 		cgfont = CGFontCreateWithDataProvider(dp);
-		if (cgfont != NULL)
+		if (cgfont != NULL) {
 			[out addObject:[NSValue valueWithPointer:cgfont]];
+			[outurls addObject:file];
+		}
 		// otherwise the font file is invalid
 		CFRelease(dp);
 		return (NSError *) nil;		// make compiler happy
@@ -73,6 +76,7 @@ NSError *loadFonts(NSURL *dirURL, NSArray **fonts)
 	if (err != nil)
 		return err;
 	*fonts = out;
+	*fontURLs = outurls;
 	return nil;
 }
 
@@ -90,6 +94,7 @@ struct ctasset {
 
 @interface previewView : NSView<NSTextFieldDelegate> {
 	NSArray *fonts;
+	NSArray *fontURLs;
 	NSString *curString;
 	CGFloat size;
 	struct ctasset *curAssets;
@@ -99,11 +104,12 @@ struct ctasset {
 
 @implementation previewView
 
-- (id)initWithFonts:(NSArray *)fts
+- (id)initWithFonts:(NSArray *)fts urls:(NSArray *)ftus
 {
 	self = [super initWithFrame:NSZeroRect];
 	if (self) {
 		self->fonts = fts;
+		self->fontURLs = ftus;
 		self->curString = [@"" copy];
 		self->size = 12;
 		self->curAssets = NULL;
@@ -122,6 +128,7 @@ struct ctasset {
 		cgfont = (CGFontRef) [v pointerValue];
 		CFRelease(cgfont);
 	}
+	[self->fontURLs release];
 	[self->fonts release];
 	[super dealloc];
 }
@@ -131,7 +138,7 @@ struct ctasset {
 	return YES;
 }
 
-- (void)mkCTAsset:(struct ctasset *)c for:(CGFontRef)cgfont width:(CGFloat)width
+- (void)mkCTAsset:(struct ctasset *)c for:(CGFontRef)cgfont width:(CGFloat)width index:(CFIndex)index
 {
 	NSString *fontName;
 	NSFont *sysfont;
@@ -143,6 +150,12 @@ struct ctasset {
 
 	c->font = CTFontCreateWithGraphicsFont(cgfont, self->size, NULL, NULL);
 	fontName = [((NSFont *) (c->font)) displayName];
+	if (fontName == nil) {		// happens with some Google Fonts entries
+		NSURL *url;
+
+		url = [self->fontURLs objectAtIndex:index];
+		fontName = [[url path] copy];
+	}
 	sysfont = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSRegularControlSize]];
 	c->fontName = [[NSAttributedString alloc]
 		initWithString:fontName
@@ -248,7 +261,7 @@ struct ctasset {
 
 		v = (NSValue *) [self->fonts objectAtIndex:i];
 		cgfont = (CGFontRef) [v pointerValue];
-		[self mkCTAsset:c for:cgfont width:textwid];
+		[self mkCTAsset:c for:cgfont width:textwid index:i];
 		c++;
 	}
 	height = [self layoutLines];
@@ -305,7 +318,7 @@ struct ctasset {
 @end
 
 @interface appDelegate : NSObject<NSApplicationDelegate>
-- (void)openWindow:(NSArray *)fonts;
+- (void)openWindow:(NSArray *)fonts urls:(NSArray *)urls;
 @end
 
 @implementation appDelegate
@@ -313,7 +326,7 @@ struct ctasset {
 - (void)applicationDidFinishLaunching:(NSNotification *)note
 {
 	NSOpenPanel *open;
-	NSArray *fonts;
+	NSArray *fonts, *fontURLs;
 	NSError *err;
 
 	open = [NSOpenPanel openPanel];
@@ -328,16 +341,16 @@ struct ctasset {
 		[app terminate:self];
 	// TODO release open? merely hide open? do neither?
 
-	err = loadFonts((NSURL *) [[open URLs] objectAtIndex:0], &fonts);
+	err = loadFonts((NSURL *) [[open URLs] objectAtIndex:0], &fonts, &fontURLs);
 	if (err != nil) {
 		[[NSAlert alertWithError:err] runModal];
 		[app terminate:self];
 	}
 
-	[self openWindow:fonts];
+	[self openWindow:fonts urls:fontURLs];
 }
 
-- (void)openWindow:(NSArray *)fonts
+- (void)openWindow:(NSArray *)fonts urls:(NSArray *)fontURLs
 {
 	NSWindow *mainwin;
 	__block NSView *contentView;
@@ -354,7 +367,7 @@ struct ctasset {
 		defer:YES];
 	contentView = [mainwin contentView];
 
-	pv = [[previewView alloc] initWithFonts:fonts];
+	pv = [[previewView alloc] initWithFonts:fonts urls:fontURLs];
 	[pv setAutoresizingMask:(NSViewWidthSizable | NSViewMinYMargin)];
 
 	sv = [[NSScrollView alloc] initWithFrame:NSZeroRect];
