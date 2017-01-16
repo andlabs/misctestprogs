@@ -1,9 +1,9 @@
 // 5 january 2017
 #import <Cocoa/Cocoa.h>
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	CFDictionaryRef attrs;
+	CFMutableDictionaryRef attrs;
 	NSString *s;
 	int i;
 	CFAttributedStringRef cfas;
@@ -18,7 +18,12 @@ int main(void)
 	attrs = CFDictionaryCreateMutable(NULL, 0,
 		&kCFCopyStringDictionaryKeyCallBacks,
 		&kCFTypeDictionaryValueCallBacks);
-//	CFDictionaryAddValue(attrs, kCTFontAttributeName, font);
+	if (argc > 1 && strcmp(argv[1], "-times") == 0) {
+		CTFontRef font;
+
+		font = CTFontCreateWithName(CFSTR("Times New Roman"), 12, NULL);
+		CFDictionaryAddValue(attrs, kCTFontAttributeName, font);
+	}
 	s = @"This is a test string.";
 	for (i = 0; i < 10; i++)
 		s = [s stringByAppendingString:@" This is a test string."];
