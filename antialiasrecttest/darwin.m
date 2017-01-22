@@ -7,9 +7,11 @@
 @interface rectView : NSView {
 	int current;
 	BOOL antialias;
+	BOOL sameColor;
 }
 - (IBAction)currentChanged:(id)sender;
 - (IBAction)antialiasChanged:(id)sender;
+- (IBAction)sameColorChanged:(id)sender;
 @end
 
 @implementation rectView
@@ -20,6 +22,7 @@
 	if (self) {
 		self->current = 0;
 		self->antialias = YES;
+		self->sameColor = NO;
 	}
 	return self;
 }
@@ -59,7 +62,8 @@
 		CGContextFillPath(c);
 		CFRelease(path);
 		cur++;
-		cc = (cc + 1) % 4;
+		if (!self->sameColor)
+			cc = (cc + 1) % 4;
 	}
 
 	CGContextRestoreGState(c);
@@ -81,6 +85,14 @@
 	[self setNeedsDisplay:YES];
 }
 
+- (IBAction)sameColorChanged:(id)sender
+{
+	NSButton *cb = (NSButton *) sender;
+
+	self->sameColor = [cb state] != NSOffState;
+	[self setNeedsDisplay:YES];
+}
+
 @end
 
 @interface appDelegate : NSObject<NSApplicationDelegate>
@@ -96,6 +108,7 @@
 	NSPopUpButtonCell *pbcell;
 	int i;
 	NSButton *antialias;
+	NSButton *sameColor;
 	rectView *rv;
 	__block NSDictionary *views;
 	void (^addConstraints)(NSString *s);
@@ -136,7 +149,18 @@
 	[antialias setTranslatesAutoresizingMaskIntoConstraints:NO];
 	[contentView addSubview:antialias];
 
-	views = NSDictionaryOfVariableBindings(chooser, antialias, rv);
+	sameColor = [[NSButton alloc] initWithFrame:NSZeroRect];
+	[sameColor setTitle:@"Same Color"];
+	[sameColor setButtonType:NSSwitchButton];
+	// doesn't seem to have an associated bezel style
+	[sameColor setBordered:NO];
+	[sameColor setTransparent:NO];
+	[sameColor setTarget:rv];
+	[sameColor setAction:@selector(sameColorChanged:)];
+	[sameColor setTranslatesAutoresizingMaskIntoConstraints:NO];
+	[contentView addSubview:sameColor];
+
+	views = NSDictionaryOfVariableBindings(chooser, antialias, sameColor, rv);
 	addConstraints = ^(NSString *s) {
 		NSArray<NSLayoutConstraint *> *a;
 
@@ -147,9 +171,10 @@
 		[contentView addConstraints:a];
 	};
 	addConstraints(@"H:|-[chooser]-|");
-	addConstraints(@"H:|-[antialias]-|");
+	addConstraints(@"H:|-[antialias]-[sameColor(==antialias)]-|");
 	addConstraints(@"H:|-[rv]-|");
 	addConstraints(@"V:|-[chooser][antialias]-[rv]-|");
+	addConstraints(@"V:[chooser][sameColor]");
 
 	[mainwin center];
 	[mainwin makeKeyAndOrderFront:self];
