@@ -6,8 +6,10 @@
 
 @interface rectView : NSView {
 	int current;
+	BOOL antialias;
 }
 - (IBAction)currentChanged:(id)sender;
+- (IBAction)antialiasChanged:(id)sender;
 @end
 
 @implementation rectView
@@ -15,8 +17,10 @@
 - (id)initWithFrame:(NSRect)r
 {
 	self = [super initWithFrame:r];
-	if (self)
+	if (self) {
 		self->current = 0;
+		self->antialias = YES;
+	}
 	return self;
 }
 
@@ -32,6 +36,9 @@
 	int cc = 0;
 
 	c = (CGContextRef) [[NSGraphicsContext currentContext] graphicsPort];
+
+	CGContextSaveGState(c);
+	CGContextSetShouldAntialias(c, self->antialias != NO);
 
 	while (cur->x < 50) {
 		CGMutablePathRef path;
@@ -54,6 +61,8 @@
 		cur++;
 		cc = (cc + 1) % 4;
 	}
+
+	CGContextRestoreGState(c);
 }
 
 - (IBAction)currentChanged:(id)sender
@@ -61,6 +70,14 @@
 	NSPopUpButton *pb = (NSPopUpButton *) sender;
 
 	self->current = [pb indexOfSelectedItem];
+	[self setNeedsDisplay:YES];
+}
+
+- (IBAction)antialiasChanged:(id)sender
+{
+	NSButton *cb = (NSButton *) sender;
+
+	self->antialias = [cb state] != NSOffState;
 	[self setNeedsDisplay:YES];
 }
 
@@ -78,6 +95,7 @@
 	NSPopUpButton *chooser;
 	NSPopUpButtonCell *pbcell;
 	int i;
+	NSButton *antialias;
 	rectView *rv;
 	__block NSDictionary *views;
 	void (^addConstraints)(NSString *s);
@@ -106,7 +124,19 @@
 	[chooser setTarget:rv];
 	[chooser setAction:@selector(currentChanged:)];
 
-	views = NSDictionaryOfVariableBindings(chooser, rv);
+	antialias = [[NSButton alloc] initWithFrame:NSZeroRect];
+	[antialias setTitle:@"Antialias"];
+	[antialias setButtonType:NSSwitchButton];
+	// doesn't seem to have an associated bezel style
+	[antialias setBordered:NO];
+	[antialias setTransparent:NO];
+	[antialias setState:NSOnState];
+	[antialias setTarget:rv];
+	[antialias setAction:@selector(antialiasChanged:)];
+	[antialias setTranslatesAutoresizingMaskIntoConstraints:NO];
+	[contentView addSubview:antialias];
+
+	views = NSDictionaryOfVariableBindings(chooser, antialias, rv);
 	addConstraints = ^(NSString *s) {
 		NSArray<NSLayoutConstraint *> *a;
 
@@ -117,8 +147,9 @@
 		[contentView addConstraints:a];
 	};
 	addConstraints(@"H:|-[chooser]-|");
+	addConstraints(@"H:|-[antialias]-|");
 	addConstraints(@"H:|-[rv]-|");
-	addConstraints(@"V:|-[chooser]-[rv]-|");
+	addConstraints(@"V:|-[chooser][antialias]-[rv]-|");
 
 	[mainwin center];
 	[mainwin makeKeyAndOrderFront:self];

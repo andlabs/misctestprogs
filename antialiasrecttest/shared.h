@@ -1,5 +1,8 @@
 // 22 january 2017
 
+// TODO re-run everything with %0.8f instead of %g
+// TODO add an addition-fixed version of the windows ones, if one is needed after that?
+
 struct rect {
 	double x;
 	double y;
