@@ -20,6 +20,8 @@
 
 ID2D1Factory *d2dfactory;
 HWND chooser;
+HWND antialias;
+HWND sameColor;
 HWND ra;
 
 void loghr(const char *f, HRESULT hr)
@@ -40,6 +42,7 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 	D2D1_RECT_F rect;
 	const struct rect *cr;
 	int cc = 0;
+	D2D1_ANTIALIAS_MODE curaa, newaa;
 	HRESULT hr;
 
 	rt->BeginDraw();
@@ -51,6 +54,12 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 	color.a = 1.0;
 	rt->Clear(&color);
 
+	curaa = rt->GetAntialiasMode();
+	newaa = D2D1_ANTIALIAS_MODE_ALIASED;
+	if (SendMessageW(antialias, BM_GETCHECK, 0, 0) != BST_UNCHECKED)
+		newaa = D2D1_ANTIALIAS_MODE_PER_PRIMITIVE;
+	rt->SetAntialiasMode(newaa);
+
 	cr = rectList[SendMessageW(chooser, CB_GETCURSEL, 0, 0)].rects;
 	while (cr->x < 50) {
 		color.r = fillcolors[cc].r;
@@ -60,6 +69,7 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 		hr = rt->CreateSolidColorBrush(&color, NULL, &brush);
 		if (hr != S_OK) {
 			loghr("CreateSolidColorBrush()", hr);
+			rt->SetAntialiasMode(curaa);
 			rt->EndDraw(NULL, NULL);
 			return hr;
 		}
@@ -72,9 +82,11 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 
 		brush->Release();
 		cr++;
-		cc = (cc + 1) % 4;
+		if (SendMessageW(sameColor, BM_GETCHECK, 0, 0) == BST_UNCHECKED)
+			cc = (cc + 1) % 4;
 	}
 
+	rt->SetAntialiasMode(curaa);
 	hr = rt->EndDraw(NULL, NULL);
 	if (hr != S_OK && hr != D2DERR_RECREATE_TARGET)
 		loghr("EndDraw()", hr);
@@ -183,7 +195,7 @@ LRESULT CALLBACK wndproc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 		// TODO make this more specific?
 		hc = (HWND) lParam;
-		if (hc == chooser)
+		if (hc == chooser || hc == antialias || hc == sameColor)
 			InvalidateRect(ra, NULL, TRUE);
 		break;
 	case WM_CLOSE:
@@ -259,8 +271,26 @@ int main(int argc, char *argv[])
 	SendMessageW(chooser, CB_GETCOMBOBOXINFO, 0, (LPARAM) (&cbi));
 	// this I figured out is right (or at least seems to be right) on my own
 	GetWindowRect(cbi.hwndCombo, &(cbi.rcItem));
-	r.top += (cbi.rcItem.bottom - cbi.rcItem.top) + 4;
+	r.top += (cbi.rcItem.bottom - cbi.rcItem.top);
 
+	antialias = CreateWindowExW(0,
+		L"BUTTON", L"Antialias",
+		WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+		r.left, r.top,
+		(r.right - r.left) / 2, 15,
+		mainwin, (HMENU) 101, NULL, NULL);
+	SendMessageW(antialias, BM_SETCHECK, BST_CHECKED, 0);
+
+	sameColor = CreateWindowExW(0,
+		L"BUTTON", L"Same Color",
+		WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
+		r.left + (r.right - r.left) / 2, r.top,
+		(r.right - r.left) / 2, 15,
+		mainwin, (HMENU) 102, NULL, NULL);
+	SendMessageW(sameColor, BM_SETCHECK, BST_UNCHECKED, 0);
+	r.top += 15;
+
+	r.top += 4;
 	r.bottom -= 7;
 	ra = CreateWindowExW(0,
 		L"rectArea", L"",
