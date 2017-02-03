@@ -24,7 +24,10 @@ int main(int argc, char *argv[])
 	else
 		font = CTFontCreateWithName(CFSTR("Helvetica"), 14, NULL);
 	CFDictionaryAddValue(attrs, kCTFontAttributeName, font);
-	s = CFStringCreateWithCString(NULL, "A\xCC\xAA\xEF\xB8\xA0", kCFStringEncodingUTF8);
+	if (argc > 1 && strcmp(argv[1], "longer") == 0)
+		s = CFStringCreateWithCString(NULL, "This is a test A\xCC\xAA\xEF\xB8\xA0 and this is a test", kCFStringEncodingUTF8);
+	else
+		s = CFStringCreateWithCString(NULL, "A\xCC\xAA\xEF\xB8\xA0", kCFStringEncodingUTF8);
 	cfas = CFAttributedStringCreate(NULL, s, attrs);
 	fs = CTFramesetterCreateWithAttributedString(cfas);
 	range = CFRangeMake(0, CFAttributedStringGetLength(cfas));
