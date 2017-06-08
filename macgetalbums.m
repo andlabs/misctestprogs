@@ -23,6 +23,7 @@ const char *scriptSource =
 	"	allItems\n"
 	"end tell\n";
 
+// see also http://www.cocoabuilder.com/archive/cocoa/281785-extract-keys-values-from-usrf-record-type-nsappleeventdescriptor.html
 static NSDictionary *unpackRecord(NSAppleEventDescriptor *desc)
 {
 	NSMutableDictionary *dict;
