@@ -72,16 +72,21 @@ HRESULT doLine(ID2D1RenderTarget *rt, const WCHAR *desc, double *y, ID2D1Brush *
 			return hr;
 		}
 		hr = (*f)(t);
-		if (hr != S_OK) {
+		if (hr != S_OK && hr != S_FALSE) {
 			loghr("user function", hr);
 			t->Release();
 			layout->Release();
 			return hr;
 		}
+		if (hr == S_FALSE) {
+			t->Release();
+			t = NULL;
+		}
 		range.startPosition = 0;
 		range.length = wcslen(line);
 		hr = layout->SetTypography(t, range);
-		t->Release();
+		if (t != NULL)
+			t->Release();
 		if (hr != S_OK) {
 			loghr("SetTypography()", hr);
 			layout->Release();
@@ -135,7 +140,14 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 		rt->EndDraw(NULL, NULL);
 		return hr;
 	}
-	// TODO NULL IDWriteTypography
+	hr = doLine(rt, L"NULL IDWriteTypography", &y, brush,
+		[](IDWriteTypography *t) -> HRESULT {
+			return S_FALSE;
+		});
+	if (hr != S_OK) {
+		rt->EndDraw(NULL, NULL);
+		return hr;
+	}
 	hr = doLine(rt, L"Empty IDWriteTypography", &y, brush,
 		[](IDWriteTypography *t) -> HRESULT {
 			return S_OK;
@@ -347,7 +359,7 @@ int main(int argc, char *argv[])
 		L"mainwin", L"mainwin",
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		640, 480,
+		640, 580,
 		NULL, NULL, NULL, NULL);
 
 	ShowWindow(mainwin, SW_SHOWDEFAULT);
