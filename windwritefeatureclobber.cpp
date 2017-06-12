@@ -29,7 +29,9 @@ void loghr(const char *f, HRESULT hr)
 #define textSize (48.0 * (96.0 / 72.0))
 #define ypadding 2.0
 
-HRESULT doLine(ID2D1RenderTarget *rt, const WCHAR *desc, double *y, ID2D1Brush *brush)
+typedef HRESULT (*doTypographyFeaturesFunc)(IDWriteTypography *t);
+
+HRESULT doLine(ID2D1RenderTarget *rt, const WCHAR *desc, double *y, ID2D1Brush *brush, doTypographyFeaturesFunc f)
 {
 	IDWriteTextLayout *layout;
 	static WCHAR *line;
@@ -59,6 +61,33 @@ HRESULT doLine(ID2D1RenderTarget *rt, const WCHAR *desc, double *y, ID2D1Brush *
 		rt->EndDraw(NULL, NULL);
 		return hr;
 	}
+	if (f != NULL) {
+		IDWriteTypography *t;
+		DWRITE_TEXT_RANGE range;
+
+		hr = dwfactory->CreateTypography(&t);
+		if (hr != S_OK) {
+			loghr("CreateTypography()", hr);
+			layout->Release();
+			return hr;
+		}
+		hr = (*f)(t);
+		if (hr != S_OK) {
+			loghr("user function", hr);
+			t->Release();
+			layout->Release();
+			return hr;
+		}
+		range.startPosition = 0;
+		range.length = wcslen(line);
+		hr = layout->SetTypography(t, range);
+		t->Release();
+		if (hr != S_OK) {
+			loghr("SetTypography()", hr);
+			layout->Release();
+			return hr;
+		}
+	}
 	pt.x = margins;
 	pt.y = *y;
 	rt->DrawTextLayout(pt, layout, brush, D2D1_DRAW_TEXT_OPTIONS_NONE);
@@ -66,6 +95,9 @@ HRESULT doLine(ID2D1RenderTarget *rt, const WCHAR *desc, double *y, ID2D1Brush *
 	*y += textSize + (2 * ypadding);
 	return S_OK;
 }
+
+#define otherFeatureName L"frac"
+#define otherFeature ((DWRITE_FONT_FEATURE_TAG) DWRITE_MAKE_OPENTYPE_TAG('f', 'r', 'a', 'c'))
 
 HRESULT doPaint(ID2D1RenderTarget *rt)
 {
@@ -97,12 +129,59 @@ HRESULT doPaint(ID2D1RenderTarget *rt)
 	}
 
 	y = margins;
-	hr = doLine(rt, L"No call to SetTypography()", &y, brush);
+	hr = doLine(rt, L"No call to SetTypography()", &y, brush,
+		NULL);
 	if (hr != S_OK) {
 		rt->EndDraw(NULL, NULL);
 		return hr;
 	}
-	hr = doLine(rt, L"Empty IDWriteTypography", &y, brush);
+	// TODO NULL IDWriteTypography
+	hr = doLine(rt, L"Empty IDWriteTypography", &y, brush,
+		[](IDWriteTypography *t) -> HRESULT {
+			return S_OK;
+		});
+	if (hr != S_OK) {
+		rt->EndDraw(NULL, NULL);
+		return hr;
+	}
+	hr = doLine(rt, L"IDWriteTypography with liga", &y, brush,
+		[](IDWriteTypography *t) -> HRESULT {
+			DWRITE_FONT_FEATURE ff;
+
+			ff.nameTag = (DWRITE_FONT_FEATURE_TAG) DWRITE_MAKE_OPENTYPE_TAG('l', 'i', 'g', 'a');
+			ff.parameter = 1;
+			return t->AddFontFeature(ff);
+		});
+	if (hr != S_OK) {
+		rt->EndDraw(NULL, NULL);
+		return hr;
+	}
+	hr = doLine(rt, L"IDWriteTypography with " otherFeatureName, &y, brush,
+		[](IDWriteTypography *t) -> HRESULT {
+			DWRITE_FONT_FEATURE ff;
+
+			ff.nameTag = otherFeature;
+			ff.parameter = 1;
+			return t->AddFontFeature(ff);
+		});
+	if (hr != S_OK) {
+		rt->EndDraw(NULL, NULL);
+		return hr;
+	}
+	hr = doLine(rt, L"IDWriteTypography with liga and " otherFeatureName, &y, brush,
+		[](IDWriteTypography *t) -> HRESULT {
+			DWRITE_FONT_FEATURE ff;
+			HRESULT hr;
+
+			ff.nameTag = (DWRITE_FONT_FEATURE_TAG) DWRITE_MAKE_OPENTYPE_TAG('l', 'i', 'g', 'a');
+			ff.parameter = 1;
+			hr = t->AddFontFeature(ff);
+			if (hr != S_OK)
+				return hr;
+			ff.nameTag = otherFeature;
+			ff.parameter = 1;
+			return t->AddFontFeature(ff);
+		});
 	if (hr != S_OK) {
 		rt->EndDraw(NULL, NULL);
 		return hr;
