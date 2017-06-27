@@ -38,6 +38,65 @@ void dieLE(const char *msg)
 	die(msg, hr);
 }
 
+class featurePreparer {
+	std::vector<OPENTYPE_TAG> tags;
+	std::vector<LONG> values;
+	bool prepared;
+	OPENTYPE_FEATURE_RECORD *otfr;
+	TEXTRANGE_PROPERTIES *tr;
+public:
+	TEXTRANGE_PROPERTIES **usRangeProperties;
+	int *usRangeChars;
+	int usRanges;
+
+	featurePreparer()
+	{
+		this->prepared = false;
+		this->otfr = NULL;
+		this->tr = NULL;
+		this->usRangeProperties = NULL;
+		this->usRangeChars = NULL;
+		this->usRanges = 0;
+	}
+
+	~featurePreparer()
+	{
+		if (this->prepared) {
+			delete[] this->usRangeChars;
+			delete[] this->usRangeProperties;
+			delete this->tr;
+			delete[] this->otfr;
+		}
+	}
+
+	void add(char a, char b, char c, char d, LONG value)
+	{
+		this->tags.push_back((OPENTYPE_TAG) DWRITE_MAKE_OPENTYPE_TAG(a, b, c, d));
+		this->values.push_back(value);
+	}
+
+	void prepare(size_t len)
+	{
+		size_t i, n;
+
+		this->prepared = true;
+		n = this->tags.size();
+		this->otfr = new OPENTYPE_FEATURE_RECORD[n];
+		for (i = 0; i < n; i++) {
+			this->otfr[i].tagFeature = this->tags[i];
+			this->otfr[i].lParameter = this->values[i];
+		}
+		this->tr = new TEXTRANGE_PROPERTIES;
+		this->tr->potfRecords = this->otfr;
+		this->tr->cotfRecords = n;
+		this->usRangeProperties = new TEXTRANGE_PROPERTIES *[1];
+		this->usRangeProperties[0] = this->tr;
+		this->usRangeChars = new int[1];
+		this->usRangeChars[0] = len;
+		this->usRanges = 1;
+	}
+};
+
 struct scriptItemizeParams {
 	WCHAR *pwcInChars;
 	int cInChars;
@@ -130,7 +189,7 @@ BOOL doScriptShapeOpenType(struct scriptShapeParams *p)
 	return FALSE;
 }
 
-void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct scriptItemizeParams *p), BOOL (*shape)(struct scriptShapeParams *p), const char *label)
+void uniscribeOnly(HDC dc, WCHAR *string, int len, featurePreparer *features, BOOL (*itemize)(struct scriptItemizeParams *p), BOOL (*shape)(struct scriptShapeParams *p), const char *label)
 {
 	SCRIPT_CONTROL scriptControl;
 	SCRIPT_STATE scriptState;
@@ -207,9 +266,14 @@ void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct script
 			p.tagScript = ottags[i];
 			// 'dflt' in little-endian; see https://github.com/emacs-mirror/emacs/blob/master/src/w32uniscribe.c
 			p.tagLangSys = 0x746C6664;
-			p.rcRangeChars = NULL;			// TODO
-			p.rpRangeProperties = NULL;		// TODO
-			p.cRanges = 0;					// TODO
+			p.rcRangeChars = NULL;
+			p.rpRangeProperties = NULL;
+			p.cRanges = 0;
+			if (features != NULL) {
+				p.rcRangeChars = features->usRangeChars;
+				p.rpRangeProperties = features->usRangeProperties;
+				p.cRanges = features->usRanges;
+			}
 			p.pCharProps = charProps;
 			p.pOutGlyphProps = glyphProps;
 			if ((*shape)(&p))
@@ -245,6 +309,7 @@ int main(void)
 	int len;
 	HDC dc;
 	HFONT font, prevfont;
+	featurePreparer *features;
 	HRESULT hr;
 
 	// TODO would using wmain() be adequate?
@@ -275,10 +340,15 @@ int main(void)
 	if (prevfont == NULL)
 		dieLE("error selecting font into HDC for Uniscribe");
 
-	uniscribeOnly(dc, string, len,
+	// first, uniscribe only; no features are used
+	uniscribeOnly(dc, string, len, NULL,
 		doScriptItemize, doScriptShape, "Uniscribe");
-	uniscribeOnly(dc, string, len,
+
+	// next, unprepared features (NULL values)
+	features = new featurePreparer;
+	uniscribeOnly(dc, string, len, features,
 		doScriptItemizeOpenType, doScriptShapeOpenType, "Uniscribe OpenType");
+	delete features;
 
 	SelectObject(dc, prevfont);
 	DeleteObject(font);
