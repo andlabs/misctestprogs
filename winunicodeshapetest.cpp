@@ -130,7 +130,7 @@ BOOL doScriptShapeOpenType(struct scriptShapeParams *p)
 	return FALSE;
 }
 
-void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct scriptItemizeParams *p), const char *label)
+void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct scriptItemizeParams *p), BOOL (*shape)(struct scriptShapeParams *p), const char *label)
 {
 	SCRIPT_CONTROL scriptControl;
 	SCRIPT_STATE scriptState;
@@ -141,7 +141,6 @@ void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct script
 	int i;
 	std::vector<WORD> glyphs;
 	size_t gi;
-	HRESULT hr;
 
 	nItems = len + 2;
 	for (;;) {
@@ -175,32 +174,55 @@ void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct script
 		WORD *logclusts;
 		WORD *glyphbuf;
 		SCRIPT_VISATTR *sva;
+		SCRIPT_CHARPROP *charProps;
+		SCRIPT_GLYPHPROP *glyphProps;
 		int nGlyphs, nActualGlyphs;
 		int j;
 
 		nChars = items[i + 1].iCharPos - items[i].iCharPos;
 		logclusts = new WORD[nChars];
+		charProps = new SCRIPT_CHARPROP[nChars];
 		nGlyphs = 1.5 * nChars + 16;
 		for (;;) {
+			scriptShapeParams p;
+
 			glyphbuf = new WORD[nGlyphs];
 			sva = new SCRIPT_VISATTR[nGlyphs];
+			glyphProps = new SCRIPT_GLYPHPROP[nGlyphs];
 			ZeroMemory(logclusts, nChars * sizeof (WORD));
 			ZeroMemory(glyphbuf, nGlyphs * sizeof (WORD));
 			ZeroMemory(sva, nGlyphs * sizeof (SCRIPT_VISATTR));
-			hr = ScriptShape(dc, &cache,
-				string + items[i].iCharPos, nChars,
-				nGlyphs, &(items[i].a),
-				glyphbuf, logclusts, sva, &nActualGlyphs);
-			if (hr == S_OK)
+			ZeroMemory(charProps, nChars * sizeof (SCRIPT_CHARPROP));
+			ZeroMemory(glyphProps, nGlyphs * sizeof (SCRIPT_GLYPHPROP));
+			p.hdc = dc;
+			p.psc = &cache;
+			p.pwcChars = string + items[i].iCharPos;
+			p.cChars = nChars;
+			p.cMaxGlyphs = nGlyphs;
+			p.psa = &(items[i].a);
+			p.pwOutGlyphs = glyphbuf;
+			p.pwLogClust = logclusts;
+			p.psva = sva;
+			p.pcGlyphs = &nActualGlyphs;
+			p.tagScript = ottags[i];
+			// 'dflt' in little-endian; see https://github.com/emacs-mirror/emacs/blob/master/src/w32uniscribe.c
+			p.tagLangSys = 0x746C6664;
+			p.rcRangeChars = NULL;			// TODO
+			p.rpRangeProperties = NULL;		// TODO
+			p.cRanges = 0;					// TODO
+			p.pCharProps = charProps;
+			p.pOutGlyphProps = glyphProps;
+			if ((*shape)(&p))
 				break;
-			if (hr != E_OUTOFMEMORY)
-				die("error calling ScriptShape()", hr);
+			delete[] glyphProps;
 			delete[] sva;
 			delete[] glyphbuf;
 			nGlyphs *= 2;
 		}
 		for (j = 0; j < nActualGlyphs; j++)
 			glyphs.push_back(glyphbuf[j]);
+		delete[] glyphProps;
+		delete[] charProps;
 		delete[] sva;
 		delete[] glyphbuf;
 		delete[] logclusts;
@@ -246,7 +268,7 @@ int main(void)
 	if (dc == NULL)
 		dieLE("error getting screen HDC for Uniscribe");
 	// TODO DEFAULT_CHARSET might affect the results we get
-	font = CreateFontW(0, 0, 0, 0, 0, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH, fontname);
+	font = CreateFontW(0, 0, 0, 0, 0, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, fontname);
 	if (font == NULL)
 		dieLE("error creating font for Uniscribe");
 	prevfont = (HFONT) SelectObject(dc, font);
@@ -254,9 +276,9 @@ int main(void)
 		dieLE("error selecting font into HDC for Uniscribe");
 
 	uniscribeOnly(dc, string, len,
-		doScriptItemize, "Uniscribe");
+		doScriptItemize, doScriptShape, "Uniscribe");
 	uniscribeOnly(dc, string, len,
-		doScriptItemizeOpenType, "Uniscribe OpenType");
+		doScriptItemizeOpenType, doScriptShapeOpenType, "Uniscribe OpenType");
 
 	SelectObject(dc, prevfont);
 	DeleteObject(font);
