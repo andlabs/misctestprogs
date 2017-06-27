@@ -17,7 +17,7 @@
 #include <vector>
 
 // build:
-// msvc: cl winunicodeshapetest.cpp -EHsc -link user32.lib kernel32.lib usp10.lib gdi32.lib ole32.lib dwrite.lib shell32.lib
+// msvc: cl winunicodeshapetest.cpp -EHsc -W4 -Zi -link -debug user32.lib kernel32.lib usp10.lib gdi32.lib ole32.lib dwrite.lib shell32.lib
 // mingw: TODO
 
 void die(const char *msg, HRESULT hr)
@@ -49,11 +49,93 @@ struct scriptItemizeParams {
 	int *pcItems;
 };
 
-void uniscribeOnly(HDC dc, WCHAR *string, int len)
+BOOL doScriptItemize(struct scriptItemizeParams *p)
+{
+	HRESULT hr;
+
+	hr = ScriptItemize(p->pwcInChars, p->cInChars,
+		p->cMaxItems, p->psControl, p->psState,
+		p->pItems, p->pcItems);
+	if (hr == S_OK)
+		return TRUE;
+	if (hr != E_OUTOFMEMORY)
+		die("error calling ScriptItemize()", hr);
+	return FALSE;
+}
+
+BOOL doScriptItemizeOpenType(struct scriptItemizeParams *p)
+{
+	HRESULT hr;
+
+	hr = ScriptItemizeOpenType(p->pwcInChars, p->cInChars,
+		p->cMaxItems, p->psControl, p->psState,
+		p->pItems, p->pScriptTags, p->pcItems);
+	if (hr == S_OK)
+		return TRUE;
+	if (hr != E_OUTOFMEMORY)
+		die("error calling ScriptItemizeOpenType()", hr);
+	return FALSE;
+}
+
+struct scriptShapeParams {
+	HDC hdc;
+	SCRIPT_CACHE *psc;
+	const WCHAR *pwcChars;
+	int cChars;
+	int cMaxGlyphs;
+	SCRIPT_ANALYSIS *psa;
+	WORD *pwOutGlyphs;
+	WORD *pwLogClust;
+	SCRIPT_VISATTR *psva;
+	int *pcGlyphs;
+
+	OPENTYPE_TAG tagScript;
+	OPENTYPE_TAG tagLangSys;
+	int *rcRangeChars;
+	TEXTRANGE_PROPERTIES **rpRangeProperties;
+	int cRanges;
+	SCRIPT_CHARPROP *pCharProps;
+	SCRIPT_GLYPHPROP *pOutGlyphProps;
+};
+
+BOOL doScriptShape(struct scriptShapeParams *p)
+{
+	HRESULT hr;
+
+	hr = ScriptShape(p->hdc, p->psc, p->pwcChars, p->cChars,
+		p->cMaxGlyphs, p->psa,
+		p->pwOutGlyphs, p->pwLogClust, p->psva,
+		p->pcGlyphs);
+	if (hr == S_OK)
+		return TRUE;
+	if (hr != E_OUTOFMEMORY)
+		die("error calling ScriptShape()", hr);
+	return FALSE;
+}
+
+BOOL doScriptShapeOpenType(struct scriptShapeParams *p)
+{
+	HRESULT hr;
+
+	hr = ScriptShapeOpenType(p->hdc, p->psc, p->psa,
+		p->tagScript, p->tagLangSys,
+		p->rcRangeChars, p->rpRangeProperties, p->cRanges,
+		p->pwcChars, p->cChars, p->cMaxGlyphs,
+		p->pwLogClust, p->pCharProps, p->pwOutGlyphs,
+		p->pOutGlyphProps, p->pcGlyphs);
+	if (hr == S_OK)
+		return TRUE;
+	if (hr != E_OUTOFMEMORY)
+		die("error calling ScriptShapeOpenType()", hr);
+	return FALSE;
+}
+
+void uniscribeOnly(HDC dc, WCHAR *string, int len, BOOL (*itemize)(struct scriptItemizeParams *p), const char *label)
 {
 	SCRIPT_CONTROL scriptControl;
 	SCRIPT_STATE scriptState;
 	SCRIPT_ITEM *items;
+	OPENTYPE_TAG *ottags;
 	int nItems, nActualItems;
 	SCRIPT_CACHE cache;
 	int i;
@@ -63,17 +145,25 @@ void uniscribeOnly(HDC dc, WCHAR *string, int len)
 
 	nItems = len + 2;
 	for (;;) {
+		struct scriptItemizeParams p;
+
 		items = new SCRIPT_ITEM[nItems + 1];
+		ottags = new OPENTYPE_TAG[nItems];
 		ZeroMemory(items, (nItems + 1) * sizeof (SCRIPT_ITEM));
 		ZeroMemory(&scriptControl, sizeof (SCRIPT_CONTROL));
 		ZeroMemory(&scriptState, sizeof (SCRIPT_STATE));
-		hr = ScriptItemize(string, len, nItems,
-			&scriptControl, &scriptState,
-			items, &nActualItems);
-		if (hr == S_OK)
+		ZeroMemory(ottags, nItems * sizeof (OPENTYPE_TAG));
+		p.pwcInChars = string;
+		p.cInChars = len;
+		p.cMaxItems = nItems;
+		p.psControl = &scriptControl;
+		p.psState = &scriptState;
+		p.pItems = items;
+		p.pScriptTags = ottags;
+		p.pcItems = &nActualItems;
+		if ((*itemize)(&p))
 			break;
-		if (hr != E_OUTOFMEMORY)
-			die("error calling ScriptItemize()", hr);
+		delete[] ottags;
 		delete[] items;
 		nItems *= 2;
 	}
@@ -116,9 +206,10 @@ void uniscribeOnly(HDC dc, WCHAR *string, int len)
 		delete[] logclusts;
 	}
 	// TODO do we call ScriptLayout() *here* instead?
+	delete[] ottags;
 	delete[] items;
 
-	printf("Uniscribe:");
+	printf("%s:", label);
 	for (gi = 0; gi < glyphs.size(); gi++)
 		printf(" %hu", glyphs[gi]);
 	printf("\n");
@@ -162,7 +253,10 @@ int main(void)
 	if (prevfont == NULL)
 		dieLE("error selecting font into HDC for Uniscribe");
 
-	uniscribeOnly(dc, string, len);
+	uniscribeOnly(dc, string, len,
+		doScriptItemize, "Uniscribe");
+	uniscribeOnly(dc, string, len,
+		doScriptItemizeOpenType, "Uniscribe OpenType");
 
 	SelectObject(dc, prevfont);
 	DeleteObject(font);
