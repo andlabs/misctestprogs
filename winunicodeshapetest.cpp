@@ -101,6 +101,7 @@ public:
 		this->values.push_back(value);
 	}
 
+	// TODO this probably isn't the correct use of the features array
 	void prepare(size_t len)
 	{
 		size_t i, n;
@@ -621,13 +622,14 @@ int main(void)
 		die("error creating DirectWrite font face", hr);
 
 	// first, uniscribe only; no features are used
-	uniscribeTest(dc, string, len, NULL,
-		doScriptItemize, doScriptShape, "Uniscribe");
+//	uniscribeTest(dc, string, len, NULL,
+//		doScriptItemize, doScriptShape, "Uniscribe");
 
 	// next, unprepared features (NULL values)
 	features = new featurePreparer;
-	uniscribeTest(dc, string, len, features,
-		doScriptItemizeOpenType, doScriptShapeOpenType, "Uniscribe OpenType");
+features->add('f','r','a','c',1);features->prepare(len);
+//	uniscribeTest(dc, string, len, features,
+//		doScriptItemizeOpenType, doScriptShapeOpenType, "Uniscribe OpenType");
 	directwriteAnalyzerTest(dwface, string, len, features);
 	delete features;
 
