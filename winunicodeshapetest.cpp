@@ -68,20 +68,21 @@ public:
 	UINT32 *dwFeatureRangeLengths;
 	UINT32 dwFeatureRanges;
 
+	bool noPrepare;
+
 	featurePreparer()
 	{
 		this->prepared = false;
-		this->otfr = NULL;
-		this->tr = NULL;
-		this->usRangeProperties = NULL;
-		this->usRangeChars = NULL;
-		this->usRanges = 0;
-		this->dwFeatures = NULL;
-		this->dwFeatureRangeLengths = NULL;
-		this->dwFeatureRanges = 0;
+		this->noPrepare = false;
+		this->reset();
 	}
 
 	~featurePreparer()
+	{
+		this->reset();
+	}
+
+	void reset(void)
 	{
 		if (this->prepared) {
 			delete[] this->dwFeatureRangeLengths;
@@ -92,7 +93,18 @@ public:
 			delete[] this->usRangeProperties;
 			delete this->tr;
 			delete[] this->otfr;
+			this->prepared = false;
 		}
+		this->otfr = NULL;
+		this->tr = NULL;
+		this->usRangeProperties = NULL;
+		this->usRangeChars = NULL;
+		this->usRanges = 0;
+		this->dff = NULL;
+		this->dtf = NULL;
+		this->dwFeatures = NULL;
+		this->dwFeatureRangeLengths = NULL;
+		this->dwFeatureRanges = 0;
 	}
 
 	void add(char a, char b, char c, char d, LONG value)
@@ -106,6 +118,9 @@ public:
 	{
 		size_t i, n;
 
+		this->reset();
+		if (this->noPrepare)
+			return;
 		this->prepared = true;
 		n = this->tags.size();
 		this->otfr = new OPENTYPE_FEATURE_RECORD[n];
