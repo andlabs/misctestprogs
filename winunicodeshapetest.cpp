@@ -643,7 +643,7 @@ int main(void)
 	// next, unprepared features (NULL values)
 	features = new featurePreparer;
 //features->add('z','e','r','o',1);
-features->add('f','r','a','c',1);features->prepare(len);
+//features->add('f','r','a','c',1);features->prepare(len);
 //	uniscribeTest(dc, string, len, features,
 //		doScriptItemizeOpenType, doScriptShapeOpenType, "Uniscribe OpenType");
 	directwriteAnalyzerTest(dwface, string, len, features);
